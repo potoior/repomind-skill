@@ -1,0 +1,1146 @@
+{
+  "entities": [
+    {
+      "name": "DataFlow - 数据处理框架",
+      "type": "Document",
+      "description": "文档: README.md",
+      "source_file": "README.md"
+    },
+    {
+      "name": "python",
+      "type": "Framework",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "pandas",
+      "type": "Framework",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "postgres",
+      "type": "Database",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "postgresql",
+      "type": "Database",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "redis",
+      "type": "Database",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "docker",
+      "type": "Tool",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "kubernetes",
+      "type": "Tool",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "kafka",
+      "type": "Tool",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "dataflow init",
+      "type": "Command",
+      "description": "命令: dataflow init my-pipeline",
+      "source_file": "README.md"
+    },
+    {
+      "name": "dataflow run",
+      "type": "Command",
+      "description": "命令: dataflow run my-pipeline",
+      "source_file": "README.md"
+    },
+    {
+      "name": "Pipeline",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "Transform",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "Source",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "Sink",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "Scheduler",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "Monitor",
+      "type": "Module",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "name": "API参考",
+      "type": "Document",
+      "description": "文档: docs\\api-reference.md",
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "mysql",
+      "type": "Database",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "rest",
+      "type": "Protocol",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "CSVSource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "JSONSource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "PostgresSource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "MySQLSource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "KafkaSource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "S3Source",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "APISource",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Map",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Filter",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "FlatMap",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Aggregate",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Join",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Window",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "Dedup",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "PostgresSink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "MySQLSink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "CSVSink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "JSONSink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "KafkaSink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "S3Sink",
+      "type": "Module",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "name": "架构设计",
+      "type": "Document",
+      "description": "文档: docs\\architecture.md",
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "name": "安装指南",
+      "type": "Document",
+      "description": "文档: docs\\installation.md",
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "spark",
+      "type": "Framework",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "http",
+      "type": "Protocol",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "https",
+      "type": "Protocol",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "dataflow --version",
+      "type": "Command",
+      "description": "命令: dataflow --version",
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "dataflow doctor",
+      "type": "Command",
+      "description": "命令: dataflow doctor",
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "dataflow db",
+      "type": "Command",
+      "description": "命令: dataflow db upgrade",
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "name": "快速入门",
+      "type": "Document",
+      "description": "文档: docs\\quickstart.md",
+      "source_file": "docs\\quickstart.md"
+    },
+    {
+      "name": "dataflow status",
+      "type": "Command",
+      "description": "命令: dataflow status my-etl",
+      "source_file": "docs\\quickstart.md"
+    },
+    {
+      "name": "dataflow logs",
+      "type": "Command",
+      "description": "命令: dataflow logs my-etl",
+      "source_file": "docs\\quickstart.md"
+    },
+    {
+      "name": "engine",
+      "type": "Module",
+      "description": "数据管道引擎，负责数据流转和处理。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "PipelineConfig",
+      "type": "Module",
+      "description": "类: PipelineConfig",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "source",
+      "type": "Feature",
+      "description": "添加数据源。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "transform",
+      "type": "Feature",
+      "description": "添加转换器。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "sink",
+      "type": "Feature",
+      "description": "添加数据输出。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "run",
+      "type": "Feature",
+      "description": "运行管道。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "stop",
+      "type": "Feature",
+      "description": "停止管道。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "get_metrics",
+      "type": "Feature",
+      "description": "获取管道指标。",
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "name": "base",
+      "type": "Module",
+      "description": "数据输出基类。",
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "name": "write",
+      "type": "Feature",
+      "description": "写入数据。",
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "name": "close",
+      "type": "Feature",
+      "description": "关闭输出。",
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "name": "read",
+      "type": "Feature",
+      "description": "读取数据。",
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "name": "process",
+      "type": "Feature",
+      "description": "处理数据。",
+      "source_file": "src\\transform\\base.py"
+    }
+  ],
+  "relations": [
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "pandas",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "docker",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "kubernetes",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "kafka",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "python",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Pipeline",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Transform",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Source",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Sink",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Scheduler",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "Monitor",
+      "type": "documents",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "API参考",
+      "target": "rest",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "mysql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "kafka",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "python",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Pipeline",
+      "type": "contains",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Source",
+      "type": "contains",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Transform",
+      "type": "contains",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Sink",
+      "type": "contains",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Monitor",
+      "type": "contains",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "CSVSource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "JSONSource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "PostgresSource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "MySQLSource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "KafkaSource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "S3Source",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "APISource",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Map",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Filter",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "FlatMap",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Aggregate",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Join",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Window",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "Dedup",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "PostgresSink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "MySQLSink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "CSVSink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "JSONSink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "KafkaSink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "API参考",
+      "target": "S3Sink",
+      "type": "documents",
+      "description": null,
+      "source_file": "docs\\api-reference.md"
+    },
+    {
+      "source": "架构设计",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "source": "架构设计",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "source": "架构设计",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "source": "架构设计",
+      "target": "kafka",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "http",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "docker",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "https",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "spark",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "kafka",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "python",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "快速入门",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\quickstart.md"
+    },
+    {
+      "source": "快速入门",
+      "target": "python",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\quickstart.md"
+    },
+    {
+      "source": "engine",
+      "target": "PipelineConfig",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "Pipeline",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "List",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "dataclass",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "Source",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "Transform",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "engine",
+      "target": "Sink",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\pipeline\\engine.py"
+    },
+    {
+      "source": "base",
+      "target": "Sink",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "CSVSink",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "CSVSink",
+      "target": "Sink",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "PostgresSink",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "PostgresSink",
+      "target": "Sink",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "KafkaSink",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "KafkaSink",
+      "target": "Sink",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "ABC",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Iterator",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "KafkaProducer",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\sink\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Source",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "CSVSource",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "CSVSource",
+      "target": "Source",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "JSONSource",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "JSONSource",
+      "target": "Source",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "PostgresSource",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "PostgresSource",
+      "target": "Source",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "data",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\source\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Transform",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Map",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "Map",
+      "target": "Transform",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Filter",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "Filter",
+      "target": "Transform",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "FlatMap",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "FlatMap",
+      "target": "Transform",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "Aggregate",
+      "type": "contains",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "Aggregate",
+      "target": "Transform",
+      "type": "extends",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "base",
+      "target": "self",
+      "type": "depends_on",
+      "description": null,
+      "source_file": "src\\transform\\base.py"
+    },
+    {
+      "source": "python",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "pandas",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "spark",
+      "target": "postgres",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "python",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "pandas",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "spark",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "python",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "pandas",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "spark",
+      "target": "redis",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "python",
+      "target": "mysql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "pandas",
+      "target": "mysql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    },
+    {
+      "source": "spark",
+      "target": "mysql",
+      "type": "uses",
+      "description": null,
+      "source_file": "inferred"
+    }
+  ]
+}
