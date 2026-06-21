@@ -388,13 +388,6 @@
   "relations": [
     {
       "source": "DataFlow - 数据处理框架",
-      "target": "postgresql",
-      "type": "uses",
-      "description": null,
-      "source_file": "README.md"
-    },
-    {
-      "source": "DataFlow - 数据处理框架",
       "target": "kafka",
       "type": "uses",
       "description": null,
@@ -416,7 +409,14 @@
     },
     {
       "source": "DataFlow - 数据处理框架",
-      "target": "kubernetes",
+      "target": "docker",
+      "type": "uses",
+      "description": null,
+      "source_file": "README.md"
+    },
+    {
+      "source": "DataFlow - 数据处理框架",
+      "target": "postgresql",
       "type": "uses",
       "description": null,
       "source_file": "README.md"
@@ -430,7 +430,7 @@
     },
     {
       "source": "DataFlow - 数据处理框架",
-      "target": "docker",
+      "target": "kubernetes",
       "type": "uses",
       "description": null,
       "source_file": "README.md"
@@ -486,7 +486,7 @@
     },
     {
       "source": "API参考",
-      "target": "postgresql",
+      "target": "kafka",
       "type": "uses",
       "description": null,
       "source_file": "docs\\api-reference.md"
@@ -500,14 +500,14 @@
     },
     {
       "source": "API参考",
-      "target": "kafka",
+      "target": "postgres",
       "type": "uses",
       "description": null,
       "source_file": "docs\\api-reference.md"
     },
     {
       "source": "API参考",
-      "target": "postgres",
+      "target": "postgresql",
       "type": "uses",
       "description": null,
       "source_file": "docs\\api-reference.md"
@@ -703,7 +703,14 @@
     },
     {
       "source": "架构设计",
-      "target": "redis",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\architecture.md"
+    },
+    {
+      "source": "架构设计",
+      "target": "kafka",
       "type": "uses",
       "description": null,
       "source_file": "docs\\architecture.md"
@@ -717,24 +724,10 @@
     },
     {
       "source": "架构设计",
-      "target": "postgresql",
+      "target": "redis",
       "type": "uses",
       "description": null,
       "source_file": "docs\\architecture.md"
-    },
-    {
-      "source": "架构设计",
-      "target": "kafka",
-      "type": "uses",
-      "description": null,
-      "source_file": "docs\\architecture.md"
-    },
-    {
-      "source": "安装指南",
-      "target": "postgresql",
-      "type": "uses",
-      "description": null,
-      "source_file": "docs\\installation.md"
     },
     {
       "source": "安装指南",
@@ -745,7 +738,7 @@
     },
     {
       "source": "安装指南",
-      "target": "spark",
+      "target": "https",
       "type": "uses",
       "description": null,
       "source_file": "docs\\installation.md"
@@ -760,13 +753,6 @@
     {
       "source": "安装指南",
       "target": "postgres",
-      "type": "uses",
-      "description": null,
-      "source_file": "docs\\installation.md"
-    },
-    {
-      "source": "安装指南",
-      "target": "docker",
       "type": "uses",
       "description": null,
       "source_file": "docs\\installation.md"
@@ -780,7 +766,21 @@
     },
     {
       "source": "安装指南",
-      "target": "https",
+      "target": "docker",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "postgresql",
+      "type": "uses",
+      "description": null,
+      "source_file": "docs\\installation.md"
+    },
+    {
+      "source": "安装指南",
+      "target": "spark",
       "type": "uses",
       "description": null,
       "source_file": "docs\\installation.md"
