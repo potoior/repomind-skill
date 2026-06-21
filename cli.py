@@ -33,6 +33,7 @@ from src.repository_loader import RepositoryLoader
 from src.knowledge_extractor import KnowledgeExtractor
 from src.graph_builder import GraphBuilder
 from src.qa_engine import QAEngine
+from src.flow_analyzer import FlowAnalyzer, analyze_project_flows
 from src.models import EntityType
 
 # ASCII Art Logo
@@ -83,6 +84,8 @@ class KnowledgeGraphCLI:
         self.current_graph = None
         self.qa_engine = None
         self.project_name = None
+        self.flow_analyzer = None
+        self.current_path = None
 
     def analyze(self, path: str, recursive: bool = True) -> dict:
         """分析本地目录或仓库"""
@@ -480,6 +483,261 @@ class KnowledgeGraphCLI:
             tree.add("[dim]无依赖关系[/dim]")
         
         console.print(tree)
+
+    def analyze_flows(self, path: str) -> None:
+        """分析API流程"""
+        path = Path(path)
+        
+        if not path.exists():
+            console.print(f"[red]✗ 路径不存在: {path}[/red]")
+            return
+        
+        self.current_path = path
+        
+        # 保存路径信息
+        flow_info_path = self.output_dir / "flow_info.json"
+        with open(flow_info_path, 'w', encoding='utf-8') as f:
+            json.dump({"path": str(path)}, f)
+        
+        console.print(f"\n[bold]🔍 分析API流程: [cyan]{path}[/cyan][/bold]\n")
+        
+        # 查找代码文件
+        code_files = []
+        extensions = {'.py', '.js', '.ts', '.java', '.go'}
+        ignore_dirs = {'.git', 'node_modules', '__pycache__', 'venv', '.venv'}
+        
+        for root, dirs, filenames in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in ignore_dirs]
+            for f in filenames:
+                if Path(f).suffix in extensions:
+                    file_path = Path(root) / f
+                    try:
+                        content = self._read_file(file_path)
+                        relative_path = str(file_path.relative_to(path))
+                        code_files.append((relative_path, content))
+                    except Exception as e:
+                        console.print(f"[yellow]⚠ 读取失败: {file_path}: {e}[/yellow]")
+        
+        console.print(f"找到 [green]{len(code_files)}[/green] 个代码文件\n")
+        
+        # 分析流程
+        with console.status("[bold green]分析API流程..."):
+            self.flow_analyzer = analyze_project_flows(code_files)
+        
+        # 保存分析结果
+        self._save_flow_analysis()
+        
+        # 显示结果
+        self.show_flow_summary()
+    
+    def _save_flow_analysis(self) -> None:
+        """保存流程分析结果"""
+        if not self.flow_analyzer:
+            return
+        
+        # 保存API端点信息
+        endpoints_data = []
+        for ep in self.flow_analyzer.api_endpoints:
+            endpoints_data.append({
+                "method": ep.method,
+                "path": ep.path,
+                "handler": ep.handler,
+                "file": ep.file_path,
+                "steps": ep.steps
+            })
+        
+        with open(self.output_dir / "api_endpoints.json", 'w', encoding='utf-8') as f:
+            json.dump(endpoints_data, f, ensure_ascii=False, indent=2)
+    
+    def _load_flow_analysis(self) -> bool:
+        """加载流程分析结果"""
+        flow_info_path = self.output_dir / "flow_info.json"
+        endpoints_path = self.output_dir / "api_endpoints.json"
+        
+        if not flow_info_path.exists() or not endpoints_path.exists():
+            return False
+        
+        # 加载路径信息
+        with open(flow_info_path, 'r', encoding='utf-8') as f:
+            info = json.load(f)
+            self.current_path = Path(info["path"])
+        
+        # 重新分析
+        self.analyze_flows(str(self.current_path))
+        return True
+    
+    def show_flow_summary(self) -> None:
+        """显示流程分析摘要"""
+        if not self.flow_analyzer:
+            console.print("[red]请先分析项目流程[/red]")
+            return
+        
+        analyzer = self.flow_analyzer
+        
+        # API端点统计
+        endpoints = analyzer.api_endpoints
+        functions = analyzer.functions
+        
+        console.print()
+        
+        # 显示统计信息
+        stats_table = Table(
+            title="[bold]📊 流程分析统计[/bold]",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta"
+        )
+        stats_table.add_column("指标", style="cyan")
+        stats_table.add_column("数量", style="green", justify="right")
+        
+        stats_table.add_row("API端点", str(len(endpoints)))
+        stats_table.add_row("函数", str(len(functions)))
+        stats_table.add_row("代码文件", str(len(set(f.file_path for f in functions.values()))))
+        
+        console.print(stats_table)
+        
+        # 显示API列表
+        if endpoints:
+            console.print()
+            api_table = Table(
+                title="[bold]🌐 API端点[/bold]",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan"
+            )
+            api_table.add_column("#", style="dim", width=4)
+            api_table.add_column("方法", style="bold")
+            api_table.add_column("路径", style="cyan")
+            api_table.add_column("处理函数", style="green")
+            api_table.add_column("步骤数", style="yellow", justify="right")
+            api_table.add_column("文件", style="dim")
+            
+            for i, endpoint in enumerate(endpoints, 1):
+                method_colors = {
+                    'GET': 'green',
+                    'POST': 'blue',
+                    'PUT': 'yellow',
+                    'DELETE': 'red',
+                    'PATCH': 'magenta'
+                }
+                method_color = method_colors.get(endpoint.method, 'white')
+                
+                api_table.add_row(
+                    str(i),
+                    f"[{method_color}]{endpoint.method}[/{method_color}]",
+                    endpoint.path,
+                    endpoint.handler,
+                    str(len(endpoint.steps)),
+                    endpoint.file_path
+                )
+            
+            console.print(api_table)
+    
+    def show_flow_detail(self, index: int) -> None:
+        """显示特定API的流程详情"""
+        if not self.flow_analyzer:
+            console.print("[red]请先分析项目流程[/red]")
+            return
+        
+        endpoints = self.flow_analyzer.api_endpoints
+        
+        if index < 1 or index > len(endpoints):
+            console.print(f"[red]无效的索引: {index}[/red]")
+            return
+        
+        endpoint = endpoints[index - 1]
+        
+        console.print()
+        console.print(Panel(
+            f"[bold]{endpoint.method} {endpoint.path}[/bold]\n\n"
+            f"  处理函数: [cyan]{endpoint.handler}[/cyan]\n"
+            f"  文件: [dim]{endpoint.file_path}[/dim]\n"
+            f"  步骤数: [green]{len(endpoint.steps)}[/green]",
+            title="[bold]API详情[/bold]",
+            border_style="cyan"
+        ))
+        
+        # 显示调用链
+        if endpoint.steps:
+            console.print()
+            tree = Tree("[bold]📞 调用链[/bold]")
+            
+            for i, step in enumerate(endpoint.steps):
+                func_info = self.flow_analyzer.functions.get(step)
+                if func_info:
+                    desc = func_info.description or ""
+                    file_info = f"[dim]{func_info.file_path}[/dim]"
+                    node_text = f"[cyan]{step}[/cyan]"
+                    if desc:
+                        node_text += f" - [green]{desc}[/green]"
+                    node_text += f" {file_info}"
+                    tree.add(node_text)
+                else:
+                    tree.add(f"[cyan]{step}[/cyan]")
+            
+            console.print(tree)
+    
+    def generate_flowchart(self, index: int = None, output: str = None) -> None:
+        """生成Mermaid流程图"""
+        if not self.flow_analyzer:
+            console.print("[red]请先分析项目流程[/red]")
+            return
+        
+        # 生成Mermaid代码
+        mermaid = self.flow_analyzer.generate_mermaid_flowchart(index - 1 if index else None)
+        
+        # 确定输出文件
+        if not output:
+            if index:
+                endpoints = self.flow_analyzer.api_endpoints
+                if 1 <= index <= len(endpoints):
+                    endpoint = endpoints[index - 1]
+                    safe_name = f"{endpoint.method}_{endpoint.path}".replace('/', '_').replace('{', '').replace('}', '')
+                    output = f"flow_{safe_name}.md"
+                else:
+                    output = "flow.md"
+            else:
+                output = "flow.md"
+        
+        # 保存文件
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write("# API流程图\n\n")
+            f.write("```mermaid\n")
+            f.write(mermaid)
+            f.write("\n```\n\n")
+            f.write("## 使用方法\n\n")
+            f.write("1. 复制上面的Mermaid代码\n")
+            f.write("2. 打开 [Mermaid Live Editor](https://mermaid.live)\n")
+            f.write("3. 粘贴代码即可查看流程图\n\n")
+            f.write("或者安装 VS Code 的 Mermaid 插件直接预览。\n")
+        
+        console.print(f"[green]✓ 流程图已生成: {output}[/green]")
+    
+    def generate_all_flowcharts(self, output_dir: str = None) -> None:
+        """为每个API生成单独的流程图"""
+        if not self.flow_analyzer:
+            console.print("[red]请先分析项目流程[/red]")
+            return
+        
+        if not output_dir:
+            output_dir = "flowcharts"
+        
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        flowcharts = self.flow_analyzer.generate_all_flowcharts()
+        
+        for name, mermaid in flowcharts.items():
+            safe_name = name.replace('/', '_').replace('{', '').replace('}', '').replace(' ', '_')
+            file_path = output_path / f"{safe_name}.md"
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(f"# {name} 流程图\n\n")
+                f.write("```mermaid\n")
+                f.write(mermaid)
+                f.write("\n```\n")
+        
+        console.print(f"[green]✓ 已生成 {len(flowcharts)} 个流程图到 {output_dir}/ 目录[/green]")
 
     def export(self, format: str = 'json', output: str = None) -> str:
         """导出知识图谱"""
@@ -921,6 +1179,75 @@ def version():
 def logo():
     """显示Logo"""
     console.print(LOGO)
+
+
+@cli.command()
+@click.argument('path')
+@click.pass_context
+def flow(ctx, path):
+    """分析API流程"""
+    kg = ctx.obj['kg']
+    kg.analyze_flows(path)
+    
+    if kg.flow_analyzer:
+        console.print("\n[bold]💡 下一步操作:[/bold]")
+        console.print("  [cyan]python cli.py flow-detail -i <序号>[/cyan]  查看API详情")
+        console.print("  [cyan]python cli.py flowchart -i <序号>[/cyan]   生成单个API流程图")
+        console.print("  [cyan]python cli.py flowcharts[/cyan]            生成所有流程图")
+
+
+@cli.command()
+@click.option('--index', '-i', type=int, help='API索引')
+@click.pass_context
+def flow_detail(ctx, index):
+    """显示API流程详情"""
+    kg = ctx.obj['kg']
+    
+    if not kg.flow_analyzer:
+        # 尝试加载之前的结果
+        if not kg._load_flow_analysis():
+            console.print("[red]请先运行 [cyan]flow[/cyan] 命令分析项目[/red]")
+            return
+    
+    if not index:
+        # 显示所有API
+        kg.show_flow_summary()
+        console.print("\n[bold]使用 [cyan]flow-detail -i <序号>[/cyan] 查看详情[/bold]")
+    else:
+        kg.show_flow_detail(index)
+
+
+@cli.command()
+@click.option('--index', '-i', type=int, help='API索引')
+@click.option('--output', '-o', help='输出文件路径')
+@click.pass_context
+def flowchart(ctx, index, output):
+    """生成Mermaid流程图"""
+    kg = ctx.obj['kg']
+    
+    if not kg.flow_analyzer:
+        # 尝试加载之前的结果
+        if not kg._load_flow_analysis():
+            console.print("[red]请先运行 [cyan]flow[/cyan] 命令分析项目[/red]")
+            return
+    
+    kg.generate_flowchart(index, output)
+
+
+@cli.command()
+@click.option('--output-dir', '-d', default='flowcharts', help='输出目录')
+@click.pass_context
+def flowcharts(ctx, output_dir):
+    """为所有API生成流程图"""
+    kg = ctx.obj['kg']
+    
+    if not kg.flow_analyzer:
+        # 尝试加载之前的结果
+        if not kg._load_flow_analysis():
+            console.print("[red]请先运行 [cyan]flow[/cyan] 命令分析项目[/red]")
+            return
+    
+    kg.generate_all_flowcharts(output_dir)
 
 
 if __name__ == '__main__':
