@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>medium-project - 知识图谱报告</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .stat-card .number { font-size: 36px; font-weight: bold; color: #667eea; }
+        .stat-card .label { color: #666; margin-top: 5px; }
+        .section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .section h2 { color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #667eea; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #333; }
+        tr:hover { background: #f5f5f5; }
+        .type-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .type-Module { background: #e3f2fd; color: #1976d2; }
+        .type-Feature { background: #f3e5f5; color: #7b1fa2; }
+        .type-Document { background: #e8f5e9; color: #388e3c; }
+        .type-Framework { background: #fff3e0; color: #f57c00; }
+        .type-Database { background: #fce4ec; color: #c62828; }
+        .type-Tool { background: #e0f2f1; color: #00695c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 medium-project 知识图谱报告</h1>
+            <p>生成时间: 2026-06-22 07:13:17</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number">64</div>
+                <div class="label">实体总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">108</div>
+                <div class="label">关系总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">29</div>
+                <div class="label">模块数量</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">5</div>
+                <div class="label">文档数量</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>实体列表</h2>
+            <table>
+                <tr><th>名称</th><th>类型</th><th>描述</th><th>来源</th></tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td><span class="type-badge type-Document">Document</span></td>
+                    <td>文档: README.md</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>python</td>
+                    <td><span class="type-badge type-Framework">Framework</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>pandas</td>
+                    <td><span class="type-badge type-Framework">Framework</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>postgres</td>
+                    <td><span class="type-badge type-Database">Database</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>postgresql</td>
+                    <td><span class="type-badge type-Database">Database</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>redis</td>
+                    <td><span class="type-badge type-Database">Database</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>docker</td>
+                    <td><span class="type-badge type-Tool">Tool</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>kubernetes</td>
+                    <td><span class="type-badge type-Tool">Tool</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>kafka</td>
+                    <td><span class="type-badge type-Tool">Tool</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow init</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow init my-pipeline</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow run</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow run my-pipeline</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Pipeline</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Transform</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Source</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Sink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Scheduler</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>Monitor</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>README.md</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td><span class="type-badge type-Document">Document</span></td>
+                    <td>文档: docs\api-reference.md</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>mysql</td>
+                    <td><span class="type-badge type-Database">Database</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>rest</td>
+                    <td><span class="type-badge type-Protocol">Protocol</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>CSVSource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>JSONSource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>PostgresSource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>MySQLSource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>KafkaSource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>S3Source</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>APISource</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Map</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Filter</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>FlatMap</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Aggregate</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Join</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Window</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>Dedup</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>PostgresSink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>MySQLSink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>CSVSink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>JSONSink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>KafkaSink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>S3Sink</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>-</td>
+                    <td>docs\api-reference.md</td>
+                </tr>
+                <tr>
+                    <td>架构设计</td>
+                    <td><span class="type-badge type-Document">Document</span></td>
+                    <td>文档: docs\architecture.md</td>
+                    <td>docs\architecture.md</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td><span class="type-badge type-Document">Document</span></td>
+                    <td>文档: docs\installation.md</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>spark</td>
+                    <td><span class="type-badge type-Framework">Framework</span></td>
+                    <td>-</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>http</td>
+                    <td><span class="type-badge type-Protocol">Protocol</span></td>
+                    <td>-</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>https</td>
+                    <td><span class="type-badge type-Protocol">Protocol</span></td>
+                    <td>-</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow --version</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow --version</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow doctor</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow doctor</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow db</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow db upgrade</td>
+                    <td>docs\installation.md</td>
+                </tr>
+                <tr>
+                    <td>快速入门</td>
+                    <td><span class="type-badge type-Document">Document</span></td>
+                    <td>文档: docs\quickstart.md</td>
+                    <td>docs\quickstart.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow status</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow status my-etl</td>
+                    <td>docs\quickstart.md</td>
+                </tr>
+                <tr>
+                    <td>dataflow logs</td>
+                    <td><span class="type-badge type-Command">Command</span></td>
+                    <td>命令: dataflow logs my-etl</td>
+                    <td>docs\quickstart.md</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>数据管道引擎，负责数据流转和处理。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>PipelineConfig</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>类: PipelineConfig</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>source</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>添加数据源。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>transform</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>添加转换器。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>sink</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>添加数据输出。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>run</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>运行管道。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>stop</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>停止管道。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>get_metrics</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>获取管道指标。</td>
+                    <td>src\pipeline\engine.py</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td><span class="type-badge type-Module">Module</span></td>
+                    <td>数据输出基类。</td>
+                    <td>src\sink\base.py</td>
+                </tr>
+                <tr>
+                    <td>write</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>写入数据。</td>
+                    <td>src\sink\base.py</td>
+                </tr>
+                <tr>
+                    <td>close</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>关闭输出。</td>
+                    <td>src\sink\base.py</td>
+                </tr>
+                <tr>
+                    <td>read</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>读取数据。</td>
+                    <td>src\source\base.py</td>
+                </tr>
+                <tr>
+                    <td>process</td>
+                    <td><span class="type-badge type-Feature">Feature</span></td>
+                    <td>处理数据。</td>
+                    <td>src\transform\base.py</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>关系列表</h2>
+            <table>
+                <tr><th>源</th><th>关系</th><th>目标</th></tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>kafka</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>kubernetes</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>pandas</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>docker</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>uses</td>
+                    <td>python</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Pipeline</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Scheduler</td>
+                </tr>
+                <tr>
+                    <td>DataFlow - 数据处理框架</td>
+                    <td>documents</td>
+                    <td>Monitor</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>mysql</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>kafka</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>rest</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>uses</td>
+                    <td>python</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>contains</td>
+                    <td>Pipeline</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>contains</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>contains</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>contains</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>contains</td>
+                    <td>Monitor</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>CSVSource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>JSONSource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>PostgresSource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>MySQLSource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>KafkaSource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>S3Source</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>APISource</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Map</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Filter</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>FlatMap</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Aggregate</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Join</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Window</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>Dedup</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>PostgresSink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>MySQLSink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>CSVSink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>JSONSink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>KafkaSink</td>
+                </tr>
+                <tr>
+                    <td>API参考</td>
+                    <td>documents</td>
+                    <td>S3Sink</td>
+                </tr>
+                <tr>
+                    <td>架构设计</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>架构设计</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>架构设计</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>架构设计</td>
+                    <td>uses</td>
+                    <td>kafka</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>kafka</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>spark</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>docker</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>http</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>https</td>
+                </tr>
+                <tr>
+                    <td>安装指南</td>
+                    <td>uses</td>
+                    <td>python</td>
+                </tr>
+                <tr>
+                    <td>快速入门</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>快速入门</td>
+                    <td>uses</td>
+                    <td>python</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>contains</td>
+                    <td>PipelineConfig</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>contains</td>
+                    <td>Pipeline</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td>List</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td>dataclass</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>engine</td>
+                    <td>depends_on</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>CSVSink</td>
+                </tr>
+                <tr>
+                    <td>CSVSink</td>
+                    <td>extends</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>PostgresSink</td>
+                </tr>
+                <tr>
+                    <td>PostgresSink</td>
+                    <td>extends</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>KafkaSink</td>
+                </tr>
+                <tr>
+                    <td>KafkaSink</td>
+                    <td>extends</td>
+                    <td>Sink</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>depends_on</td>
+                    <td>ABC</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>depends_on</td>
+                    <td>Iterator</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>depends_on</td>
+                    <td>KafkaProducer</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>CSVSource</td>
+                </tr>
+                <tr>
+                    <td>CSVSource</td>
+                    <td>extends</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>JSONSource</td>
+                </tr>
+                <tr>
+                    <td>JSONSource</td>
+                    <td>extends</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>PostgresSource</td>
+                </tr>
+                <tr>
+                    <td>PostgresSource</td>
+                    <td>extends</td>
+                    <td>Source</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>depends_on</td>
+                    <td>data</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Map</td>
+                </tr>
+                <tr>
+                    <td>Map</td>
+                    <td>extends</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Filter</td>
+                </tr>
+                <tr>
+                    <td>Filter</td>
+                    <td>extends</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>FlatMap</td>
+                </tr>
+                <tr>
+                    <td>FlatMap</td>
+                    <td>extends</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>contains</td>
+                    <td>Aggregate</td>
+                </tr>
+                <tr>
+                    <td>Aggregate</td>
+                    <td>extends</td>
+                    <td>Transform</td>
+                </tr>
+                <tr>
+                    <td>base</td>
+                    <td>depends_on</td>
+                    <td>self</td>
+                </tr>
+                <tr>
+                    <td>python</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>pandas</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>spark</td>
+                    <td>uses</td>
+                    <td>postgres</td>
+                </tr>
+                <tr>
+                    <td>python</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>pandas</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>spark</td>
+                    <td>uses</td>
+                    <td>postgresql</td>
+                </tr>
+                <tr>
+                    <td>python</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>pandas</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>spark</td>
+                    <td>uses</td>
+                    <td>redis</td>
+                </tr>
+                <tr>
+                    <td>python</td>
+                    <td>uses</td>
+                    <td>mysql</td>
+                </tr>
+                <tr>
+                    <td>pandas</td>
+                    <td>uses</td>
+                    <td>mysql</td>
+                </tr>
+                <tr>
+                    <td>spark</td>
+                    <td>uses</td>
+                    <td>mysql</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
