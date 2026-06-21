@@ -55,8 +55,8 @@ class FlowAnalyzer:
             if class_match:
                 current_class = class_match.group(1)
             
-            # 检测函数定义
-            func_match = re.match(r'\s*def\s+(\w+)\s*\(', line)
+            # 检测函数定义 (支持async def)
+            func_match = re.match(r'\s*(?:async\s+)?def\s+(\w+)\s*\(', line)
             if func_match:
                 func_name = func_match.group(1)
                 full_name = f"{current_class}.{func_name}" if current_class else func_name
@@ -187,9 +187,24 @@ class FlowAnalyzer:
             steps = self._trace_call_chain(handler, set())
             endpoint.steps = steps
     
+    # 需要过滤的内置/外部调用
+    FILTERED_CALLS = {
+        'if', 'for', 'while', 'return', 'print', 'len', 'str', 'int', 'list', 'dict', 'set',
+        'raise', 'HTTPException', 'None', 'True', 'False',
+        # 常见的方法调用
+        'close', 'commit', 'cursor', 'execute', 'fetchall', 'fetchone',
+        'encode', 'decode', 'hexdigest', 'sha256', 'connect',
+        'append', 'extend', 'remove', 'pop', 'insert',
+        'get', 'post', 'put', 'delete', 'patch',
+        'json', 'strip', 'split', 'join', 'replace', 'format',
+        'keys', 'values', 'items', 'update',
+        'upper', 'lower', 'capitalize', 'title',
+        'isdigit', 'isalpha', 'isalnum',
+    }
+    
     def _trace_call_chain(self, func_name: str, visited: Set[str], depth: int = 0) -> List[str]:
         """追踪调用链"""
-        if depth > 5 or func_name in visited:
+        if depth > 3 or func_name in visited:
             return []
         
         visited.add(func_name)
@@ -198,21 +213,34 @@ class FlowAnalyzer:
         # 查找函数信息
         func_info = self.functions.get(func_name)
         if not func_info:
+            # 尝试短名称
+            for key, info in self.functions.items():
+                if key.endswith(f".{func_name}") or key == func_name:
+                    func_info = info
+                    break
+        
+        if not func_info:
             return steps
         
         # 递归追踪调用
         for call in func_info.calls:
+            # 跳过内置函数和常见方法
+            if call in self.FILTERED_CALLS or call.startswith('_'):
+                continue
+            
             # 尝试不同的名称格式
             full_name = None
             if func_info.class_name:
                 full_name = f"{func_info.class_name}.{call}"
             
-            if full_name and full_name in self.functions:
-                sub_steps = self._trace_call_chain(full_name, visited, depth + 1)
-                steps.extend(sub_steps)
-            elif call in self.functions:
-                sub_steps = self._trace_call_chain(call, visited, depth + 1)
-                steps.extend(sub_steps)
+            # 查找函数
+            found = False
+            for possible_name in [full_name, call]:
+                if possible_name and possible_name in self.functions:
+                    sub_steps = self._trace_call_chain(possible_name, visited, depth + 1)
+                    steps.extend(sub_steps)
+                    found = True
+                    break
         
         return steps
     
