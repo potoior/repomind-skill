@@ -4,6 +4,19 @@
 import sys
 import os
 import io
+from pathlib import Path
+
+def _load_dotenv():
+    for p in [Path('.env'), Path.home() / '.repomind' / '.env']:
+        if p.exists():
+            for line in p.read_text(encoding='utf-8').splitlines():
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_dotenv()
 
 if sys.platform == 'win32':
     os.system('chcp 65001 >nul 2>&1')
@@ -13,7 +26,6 @@ if sys.platform == 'win32':
 import click
 import json
 import time
-from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
