@@ -987,14 +987,15 @@ def cli(ctx, output, project):
 @click.option('--no-recursive', is_flag=True, help='不递归扫描子目录')
 @click.option('--incremental', '-i', is_flag=True, help='增量更新（只处理变化的文件）')
 @click.option('--llm', is_flag=True, help='使用 LLM 提取知识（需要 OPENAI_API_KEY）')
-@click.option('--model', default='gpt-4o-mini', help='LLM 模型名称')
-@click.option('--api-key', default=None, help='OpenAI API Key（也可通过环境变量设置）')
+@click.option('--model', default=None, help='LLM 模型名称（默认读取 OPENAI_MODEL 环境变量）')
+@click.option('--api-key', default=None, help='API Key（默认读取 OPENAI_API_KEY 环境变量）')
+@click.option('--base-url', default=None, help='API Base URL（默认读取 OPENAI_BASE_URL 环境变量）')
 @click.pass_context
-def analyze(ctx, path, no_recursive, incremental, llm, model, api_key):
+def analyze(ctx, path, no_recursive, incremental, llm, model, api_key, base_url):
     """分析本地目录，生成知识图谱"""
     from src.client import is_daemon_running
 
-    llm_opts = {"llm": llm, "model": model, "api_key": api_key} if llm else {}
+    llm_opts = {"llm": llm, "model": model, "api_key": api_key, "base_url": base_url} if llm else {}
 
     if is_daemon_running(port=DAEMON_PORT):
         result = _analyze_via_daemon(path, incremental, not no_recursive, llm_opts)
@@ -1002,7 +1003,7 @@ def analyze(ctx, path, no_recursive, incremental, llm, model, api_key):
         kg = ctx.obj['kg']
         if llm:
             from src.llm_extractor import LLMExtractor
-            kg._extractor = LLMExtractor(api_key=api_key, model=model)
+            kg._extractor = LLMExtractor(api_key=api_key, model=model, base_url=base_url)
         if incremental:
             result = kg.analyze_incremental(path, recursive=not no_recursive)
         else:

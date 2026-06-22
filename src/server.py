@@ -75,6 +75,7 @@ class RepoMindHandler(BaseHTTPRequestHandler):
         use_llm = args.get("llm", False)
         model = args.get("model", "gpt-4o-mini")
         api_key = args.get("api_key")
+        base_url = args.get("base_url")
         p = Path(path)
 
         if not p.exists():
@@ -137,7 +138,7 @@ class RepoMindHandler(BaseHTTPRequestHandler):
 
         yield {"event": "step", "step": "read", "status": "done"}
 
-        llm_opts = {"use_llm": use_llm, "model": model, "api_key": api_key}
+        llm_opts = {"use_llm": use_llm, "model": model, "api_key": api_key, "base_url": base_url}
 
         if incremental:
             yield from self._do_incremental(p, md_data, code_data, llm_opts)
@@ -162,7 +163,8 @@ class RepoMindHandler(BaseHTTPRequestHandler):
             from src.llm_extractor import LLMExtractor
             extractor = LLMExtractor(
                 api_key=llm_opts.get("api_key"),
-                model=llm_opts.get("model", "gpt-4o-mini"),
+                model=llm_opts.get("model"),
+                base_url=llm_opts.get("base_url"),
             )
         else:
             extractor = self.kg.extractor
@@ -194,7 +196,8 @@ class RepoMindHandler(BaseHTTPRequestHandler):
             from src.llm_extractor import LLMExtractor
             extractor = LLMExtractor(
                 api_key=llm_opts.get("api_key"),
-                model=llm_opts.get("model", "gpt-4o-mini"),
+                model=llm_opts.get("model"),
+                base_url=llm_opts.get("base_url"),
             )
         else:
             extractor = self.kg.extractor

@@ -64,13 +64,21 @@ Rules:
 
 
 class LLMExtractor:
-    def __init__(self, api_key: str = None, model: str = "gpt-4o-mini",
-                 base_url: str = "https://api.openai.com/v1", max_tokens: int = 4096):
+    def __init__(self, api_key: str = None, model: str = None,
+                 base_url: str = None, max_tokens: int = 4096,
+                 api_type: str = None):
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        self.model = model
-        self.base_url = base_url.rstrip("/")
+        self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.base_url = (base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
         self.max_tokens = max_tokens
         self._call_count = 0
+
+        if api_type:
+            self.api_type = api_type
+        elif "anthropic" in self.base_url.lower():
+            self.api_type = "anthropic"
+        else:
+            self.api_type = "openai"
 
     def extract_from_documents(
         self, documents: List[Document], code_files: List[Tuple[str, str]] = None
