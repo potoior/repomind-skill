@@ -2,29 +2,28 @@
 
 import re
 from typing import List, Dict, Set, Optional
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
+from .renderers import render_mermaid_flowchart
 
 
-@dataclass
-class FunctionInfo:
+class FunctionInfo(BaseModel):
     """函数信息"""
     name: str
     file_path: str
     class_name: Optional[str] = None
-    calls: List[str] = field(default_factory=list)
+    calls: List[str] = Field(default_factory=list)
     description: Optional[str] = None
     line_number: int = 0
 
 
-@dataclass
-class APIEndpoint:
+class APIEndpoint(BaseModel):
     """API端点"""
     method: str
     path: str
     handler: str
     file_path: str
     description: Optional[str] = None
-    steps: List[str] = field(default_factory=list)
+    steps: List[str] = Field(default_factory=list)
 
 
 class FlowAnalyzer:
@@ -246,48 +245,7 @@ class FlowAnalyzer:
     
     def generate_mermaid_flowchart(self, endpoint_idx: int = None) -> str:
         """生成Mermaid流程图"""
-        if endpoint_idx is not None and endpoint_idx < len(self.api_endpoints):
-            endpoints = [self.api_endpoints[endpoint_idx]]
-        else:
-            endpoints = self.api_endpoints
-        
-        if not endpoints:
-            return "graph TD\n    A[No API endpoints found]"
-        
-        mermaid = "graph TD\n"
-        mermaid += "    %% 样式定义\n"
-        mermaid += "    classDef apiNode fill:#4CAF50,stroke:#388E3C,color:white\n"
-        mermaid += "    classDef funcNode fill:#2196F3,stroke:#1565C0,color:white\n"
-        mermaid += "    classDef dbNode fill:#FF9800,stroke:#EF6C00,color:white\n\n"
-        
-        for endpoint in endpoints:
-            # 创建API入口节点
-            api_id = f"API_{endpoint.method}_{endpoint.path.replace('/', '_').replace('{', '').replace('}', '')}"
-            api_label = f"{endpoint.method} {endpoint.path}"
-            mermaid += f"    {api_id}[\"🌐 {api_label}\"]:::apiNode\n"
-            
-            # 创建流程步骤
-            prev_id = api_id
-            for i, step in enumerate(endpoint.steps):
-                step_id = f"{api_id}_step{i}"
-                step_info = self.functions.get(step)
-                
-                if step_info:
-                    desc = step_info.description or step
-                    file_info = f"📁 {step_info.file_path}"
-                    mermaid += f"    {step_id}[\"📦 {step}\\n{desc}\\n{file_info}\"]:::funcNode\n"
-                else:
-                    mermaid += f"    {step_id}[\"📦 {step}\"]:::funcNode\n"
-                
-                mermaid += f"    {prev_id} --> {step_id}\n"
-                prev_id = step_id
-            
-            # 添加结束节点
-            end_id = f"{api_id}_end"
-            mermaid += f"    {end_id}[\"✅ 返回响应\"]:::apiNode\n"
-            mermaid += f"    {prev_id} --> {end_id}\n\n"
-        
-        return mermaid
+        return render_mermaid_flowchart(self.api_endpoints, self.functions, endpoint_idx)
     
     def generate_all_flowcharts(self) -> Dict[str, str]:
         """为每个API生成单独的流程图"""

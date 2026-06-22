@@ -39,14 +39,14 @@ python cli.py summary
 ```
 repomind-skill/
 ├── cli.py                      # CLI入口（Click框架）
-├── main.py                     # 交互式入口
 ├── src/
 │   ├── models.py               # 数据模型定义
 │   ├── repository_loader.py    # 仓库加载器
 │   ├── knowledge_extractor.py  # 知识提取器（核心）
 │   ├── graph_builder.py        # 图谱构建器
 │   ├── query_engine.py         # 查询引擎
-│   └── qa_engine.py            # 问答引擎
+│   ├── qa_engine.py            # 问答引擎
+│   └── flow_analyzer.py        # API流程分析器
 ├── tests/                      # 测试文件
 └── data/                       # 示例数据
 ```

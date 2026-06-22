@@ -1,3 +1,4 @@
+import re
 from typing import List
 from .models import KnowledgeGraph, Entity, EntityType
 from .query_engine import QueryEngine
@@ -11,19 +12,7 @@ class QAEngine:
     def answer_question(self, question: str) -> str:
         question_lower = question.lower()
 
-        if any(word in question for word in ["是什么", "what is", "介绍", "explain"]):
-            return self._answer_what_is(question)
-
-        if any(word in question for word in ["依赖", "depend", "需要", "require"]):
-            return self._answer_dependencies(question)
-
-        if any(word in question for word in ["模块", "module", "组件", "component"]):
-            return self._answer_modules(question)
-
-        if any(word in question for word in ["文档", "document", "doc"]):
-            return self._answer_documents(question)
-
-        if any(word in question for word in ["技术栈", "tech", "technology", "框架", "framework"]):
+        if any(word in question for word in ["技术栈", "tech", "technology"]):
             return self._answer_tech_stack(question)
 
         if any(word in question for word in ["数据库", "database", "db"]):
@@ -32,32 +21,57 @@ class QAEngine:
         if any(word in question for word in ["工具", "tool"]):
             return self._answer_tools(question)
 
+        if any(word in question for word in ["模块", "module", "组件", "component"]):
+            return self._answer_modules(question)
+
+        if any(word in question for word in ["文档", "document", "doc"]):
+            return self._answer_documents(question)
+
+        if any(word in question for word in ["依赖", "depend", "需要", "require"]):
+            return self._answer_dependencies(question)
+
+        if any(word in question for word in ["是什么", "what is", "介绍", "explain"]):
+            return self._answer_what_is(question)
+
         return self._answer_general(question)
 
-    def _answer_what_is(self, question: str) -> str:
+    def _find_entity_in_text(self, text: str) -> Entity:
+        text_lower = text.lower()
+        candidates = []
         for entity in self.graph.entities:
-            if entity.name.lower() in question.lower():
-                related = self.query_engine.find_related(entity.name)
-                related_names = [r.name for r in related[:5]]
+            name = entity.name
+            if len(name) < 2:
+                continue
+            pattern = r'(?<![a-zA-Z0-9_])' + re.escape(name.lower()) + r'(?![a-zA-Z0-9_])'
+            if re.search(pattern, text_lower):
+                candidates.append(entity)
+        candidates.sort(key=lambda e: len(e.name), reverse=True)
+        return candidates[0] if candidates else None
 
-                response = f"{entity.name} 是项目中的 {entity.type.value}。"
-                if entity.description:
-                    response += f"\n描述: {entity.description}"
-                if related_names:
-                    response += f"\n相关实体: {', '.join(related_names)}"
-                return response
+    def _answer_what_is(self, question: str) -> str:
+        entity = self._find_entity_in_text(question)
+        if entity:
+            related = self.query_engine.find_related(entity.name)
+            related_names = [r.name for r in related[:5]]
+
+            response = f"{entity.name} 是项目中的 {entity.type.value}。"
+            if entity.description:
+                response += f"\n描述: {entity.description}"
+            if related_names:
+                response += f"\n相关实体: {', '.join(related_names)}"
+            return response
 
         return "抱歉，我找不到相关的实体信息。"
 
     def _answer_dependencies(self, question: str) -> str:
-        for entity in self.graph.entities:
-            if entity.name.lower() in question.lower():
-                deps = self.query_engine.find_dependencies(entity.name)
-                if deps:
-                    dep_names = [d.name for d in deps]
-                    return f"{entity.name} 依赖于: {', '.join(dep_names)}"
-                else:
-                    return f"{entity.name} 没有发现依赖关系。"
+        entity = self._find_entity_in_text(question)
+        if entity:
+            deps = self.query_engine.find_dependencies(entity.name)
+            if deps:
+                dep_names = [d.name for d in deps]
+                return f"{entity.name} 依赖于: {', '.join(dep_names)}"
+            else:
+                return f"{entity.name} 没有发现依赖关系。"
 
         return "抱歉，我找不到相关的依赖信息。"
 

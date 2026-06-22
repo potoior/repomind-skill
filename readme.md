@@ -158,7 +158,6 @@ python cli.py interactive
 ```
 repomind-skill/
 ├── cli.py                      # CLI入口
-├── main.py                     # 交互式入口
 ├── requirements.txt            # 依赖
 ├── readme.md                   # 项目说明
 ├── SESSION.md                  # 开发会话记录
@@ -170,7 +169,8 @@ repomind-skill/
 │   ├── knowledge_extractor.py  # 知识提取
 │   ├── graph_builder.py        # 图谱构建
 │   ├── query_engine.py         # 查询引擎
-│   └── qa_engine.py            # 问答引擎
+│   ├── qa_engine.py            # 问答引擎
+│   └── flow_analyzer.py        # API流程分析
 ├── tests/
 │   └── test_basic.py           # 基础测试
 └── data/

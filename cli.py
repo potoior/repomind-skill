@@ -29,13 +29,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 console = Console(force_terminal=True)
 
-from src.repository_loader import RepositoryLoader
-from src.knowledge_extractor import KnowledgeExtractor
-from src.graph_builder import GraphBuilder
-from src.qa_engine import QAEngine
-from src.flow_analyzer import FlowAnalyzer, analyze_project_flows
-from src.models import EntityType
-
 # ASCII Art Logo
 LOGO = """
 [bold cyan]
@@ -73,19 +66,61 @@ RELATION_ICONS = {
     "implements": "⟶",
 }
 
+DAEMON_PORT = 19832
+
+
+def _try_daemon(command: str, args: dict = None):
+    from src.client import is_daemon_running, request
+    if not is_daemon_running(port=DAEMON_PORT):
+        return None
+    resp = request(command, args or {}, port=DAEMON_PORT)
+    if "error" in resp:
+        console.print(f"[red]✗ {resp['error']}[/red]")
+        return "error"
+    return resp.get("result")
+
 
 class KnowledgeGraphCLI:
     def __init__(self, output_dir: str = "output"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.loader = RepositoryLoader()
-        self.extractor = KnowledgeExtractor()
-        self.builder = GraphBuilder(str(self.output_dir))
+        self._loader = None
+        self._extractor = None
+        self._builder = None
         self.current_graph = None
         self.qa_engine = None
         self.project_name = None
         self.flow_analyzer = None
         self.current_path = None
+
+    @property
+    def loader(self):
+        if self._loader is None:
+            from src.repository_loader import RepositoryLoader
+            self._loader = RepositoryLoader()
+        return self._loader
+
+    @property
+    def extractor(self):
+        if self._extractor is None:
+            from src.knowledge_extractor import KnowledgeExtractor
+            self._extractor = KnowledgeExtractor()
+        return self._extractor
+
+    @property
+    def builder(self):
+        if self._builder is None:
+            from src.graph_builder import GraphBuilder
+            self._builder = GraphBuilder(str(self.output_dir))
+        return self._builder
+
+    def _make_qa(self, graph):
+        from src.qa_engine import QAEngine
+        return QAEngine(graph)
+
+    def _make_doc(self, path, title, content, headings):
+        from src.models import Document
+        return Document(path=path, title=title, content=content, headings=headings)
 
     def analyze(self, path: str, recursive: bool = True) -> dict:
         """分析本地目录或仓库"""
@@ -127,12 +162,8 @@ class KnowledgeGraphCLI:
                     title = self._extract_title(content)
                     headings = self._extract_headings(content)
                     
-                    from src.models import Document
-                    documents.append(Document(
-                        path=str(relative_path),
-                        title=title,
-                        content=content,
-                        headings=headings
+                    documents.append(self._make_doc(
+                        str(relative_path), title, content, headings
                     ))
                 except Exception as e:
                     console.print(f"[yellow]⚠ 读取失败 {md_file}: {e}[/yellow]")
@@ -160,7 +191,7 @@ class KnowledgeGraphCLI:
         self.project_name = repo_name
         graph = self.builder.build_graph(entities, relations, repo_name)
         self.current_graph = graph
-        self.qa_engine = QAEngine(graph)
+        self.qa_engine = self._make_qa(graph)
         
         # 生成可视化
         html_path = self.builder.generate_html_visualization(graph, repo_name)
@@ -183,6 +214,135 @@ class KnowledgeGraphCLI:
             "relations": len(relations),
             "graph_path": str(self.output_dir / f"{repo_name}.graph.json"),
             "html_path": html_path
+        }
+
+    def analyze_incremental(self, path: str, recursive: bool = True) -> dict:
+        from src.models import FileRecord
+        path = Path(path)
+        if not path.exists():
+            console.print(f"[red]✗ 路径不存在: {path}[/red]")
+            return None
+
+        repo_name = path.name
+        self.project_name = repo_name
+        manifest_path = self.output_dir / f"{repo_name}.manifest.json"
+
+        console.print(f"\n[bold]📂 增量分析: [cyan]{path}[/cyan][/bold]\n")
+
+        from src.incremental import IncrementalAnalyzer
+        incremental = IncrementalAnalyzer(self.extractor, manifest_path)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task1 = progress.add_task("[cyan]扫描文件...", total=None)
+            md_files_raw = self._find_markdown_files(path, recursive)
+            code_files_raw = self._find_code_files(path, recursive)
+            progress.update(task1, completed=100,
+                            description=f"[green]✓ 找到 {len(md_files_raw)} 个 Markdown, {len(code_files_raw)} 个代码文件")
+
+            task2 = progress.add_task("[cyan]读取文件内容...", total=len(md_files_raw) + len(code_files_raw))
+            md_files: list[tuple[str, str]] = []
+            for f in md_files_raw:
+                try:
+                    content = self._read_file(f)
+                    md_files.append((str(f.relative_to(path)), content))
+                except Exception as e:
+                    console.print(f"[yellow]⚠ 读取失败 {f}: {e}[/yellow]")
+                progress.advance(task2)
+            code_files: list[tuple[str, str]] = []
+            for f in code_files_raw:
+                try:
+                    content = self._read_file(f)
+                    code_files.append((str(f.relative_to(path)), content))
+                except Exception as e:
+                    console.print(f"[yellow]⚠ 读取失败 {f}: {e}[/yellow]")
+                progress.advance(task2)
+
+            task3 = progress.add_task("[cyan]检测变化...", total=None)
+            current = incremental.compute_current_files(md_files, code_files)
+            manifest = incremental.load_manifest()
+            added, modified, deleted = incremental.detect_changes(current, manifest)
+            progress.update(task3, completed=100, description=f"[green]✓ 新增 {len(added)}, 修改 {len(modified)}, 删除 {len(deleted)}")
+
+        if not added and not modified and not deleted:
+            console.print("[green]✓ 没有文件变化，无需更新[/green]")
+            try:
+                graph = self.builder.load_graph(repo_name)
+                self.current_graph = graph
+                self.qa_engine = self._make_qa(graph)
+            except FileNotFoundError:
+                pass
+            return None
+
+        changed = set(added + modified)
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task4 = progress.add_task("[cyan]增量提取...", total=None)
+            new_entities, new_relations = incremental.extract_from_files(changed, md_files, code_files)
+            progress.update(task4, completed=100,
+                            description=f"[green]✓ 提取 {len(new_entities)} 个实体, {len(new_relations)} 个关系")
+
+            task5 = progress.add_task("[cyan]合并图谱...", total=None)
+            try:
+                graph = self.builder.load_graph(repo_name)
+            except FileNotFoundError:
+                from src.models import KnowledgeGraph
+                graph = KnowledgeGraph()
+
+            for fp in deleted:
+                graph = incremental.remove_file_from_graph(graph, fp)
+
+            graph = incremental.merge(graph, new_entities, new_relations)
+            progress.update(task5, completed=100, description="[green]✓ 合并完成")
+
+        output_file = self.output_dir / f"{repo_name}.graph.json"
+        import json
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(graph.model_dump(), f, ensure_ascii=False, indent=2)
+
+        html_path = self.builder.generate_html_visualization(graph, repo_name)
+
+        new_manifest = incremental.load_manifest()
+        existing = {r.path: r for r in new_manifest.files}
+        for p, h in current.items():
+            existing[p] = FileRecord(path=p, content_hash=h)
+        for fp in deleted:
+            existing.pop(fp, None)
+        from src.models import FileManifest as _FM
+        incremental.save_manifest(_FM(files=list(existing.values())))
+
+        self.current_graph = graph
+        self.qa_engine = self._make_qa(graph)
+
+        console.print()
+        console.print(Panel(
+            f"[bold green]✓ 增量更新完成![/bold green]\n\n"
+            f"  ➕ 新增: [cyan]{len(added)}[/cyan] 个文件\n"
+            f"  ✏️ 修改: [cyan]{len(modified)}[/cyan] 个文件\n"
+            f"  🗑️ 删除: [cyan]{len(deleted)}[/cyan] 个文件\n"
+            f"  📊 实体: [cyan]{len(graph.entities)}[/cyan] 个\n"
+            f"  🔗 关系: [cyan]{len(graph.relations)}[/cyan] 个",
+            title="[bold]增量分析结果[/bold]",
+            border_style="green",
+        ))
+
+        return {
+            "name": repo_name,
+            "added": len(added),
+            "modified": len(modified),
+            "deleted": len(deleted),
+            "entities": len(graph.entities),
+            "relations": len(graph.relations),
         }
 
     def _find_markdown_files(self, path: Path, recursive: bool) -> list:
@@ -241,6 +401,7 @@ class KnowledgeGraphCLI:
 
     def show_summary(self):
         """显示摘要"""
+        from src.models import EntityType
         if not self.current_graph:
             console.print("[red]请先分析一个项目[/red]")
             return
@@ -331,7 +492,7 @@ class KnowledgeGraphCLI:
         try:
             graph = self.builder.load_graph(name)
             self.current_graph = graph
-            self.qa_engine = QAEngine(graph)
+            self.qa_engine = self._make_qa(graph)
             self.project_name = name
             return True
         except FileNotFoundError:
@@ -343,6 +504,20 @@ class KnowledgeGraphCLI:
         for f in self.output_dir.glob("*.graph.json"):
             graphs.append(f.stem.replace('.graph', ''))
         return graphs
+
+    def load_graph_by_name(self, project: str = None) -> bool:
+        """加载图谱，支持指定项目名，默认加载第一个"""
+        graphs = self.list_graphs()
+        if not graphs:
+            console.print("[red]没有找到已分析的项目[/red]")
+            return False
+        if project:
+            if project not in graphs:
+                console.print(f"[red]找不到项目: {project}[/red]")
+                console.print(f"[dim]可用项目: {', '.join(graphs)}[/dim]")
+                return False
+            return self.load_graph(project)
+        return self.load_graph(graphs[0])
 
     def search(self, keyword: str):
         """搜索实体"""
@@ -521,6 +696,7 @@ class KnowledgeGraphCLI:
         console.print(f"找到 [green]{len(code_files)}[/green] 个代码文件\n")
         
         # 分析流程
+        from src.flow_analyzer import analyze_project_flows
         with console.status("[bold green]分析API流程..."):
             self.flow_analyzer = analyze_project_flows(code_files)
         
@@ -781,152 +957,49 @@ class KnowledgeGraphCLI:
 
     def _export_markdown(self, output: str):
         """导出为Markdown"""
-        graph = self.current_graph
-        
+        from src.renderers import render_report_markdown
+        content = render_report_markdown(self.current_graph, self.project_name or '项目')
         with open(output, 'w', encoding='utf-8') as f:
-            f.write(f"# {self.project_name or '项目'} 知识图谱报告\n\n")
-            f.write(f"生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
-            f.write("## 统计概览\n\n")
-            f.write(f"| 指标 | 数量 |\n")
-            f.write(f"|------|------|\n")
-            f.write(f"| 实体 | {len(graph.entities)} |\n")
-            f.write(f"| 关系 | {len(graph.relations)} |\n\n")
-            
-            f.write("## 实体列表\n\n")
-            f.write("| 名称 | 类型 | 描述 | 来源 |\n")
-            f.write("|------|------|------|------|\n")
-            for e in graph.entities:
-                f.write(f"| {e.name} | {e.type.value} | {e.description or '-'} | {e.source_file or '-'} |\n")
-            
-            f.write("\n## 关系列表\n\n")
-            f.write("| 源 | 关系 | 目标 |\n")
-            f.write("|-----|------|------|\n")
-            for r in graph.relations:
-                f.write(f"| {r.source} | {r.type.value} | {r.target} |\n")
+            f.write(content)
 
     def _export_html(self, output: str):
         """导出为HTML报告"""
-        graph = self.current_graph
-        
-        html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>{self.project_name or '项目'} - 知识图谱报告</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }}
-        .container {{ max-width: 1200px; margin: 0 auto; }}
-        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; }}
-        .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
-        .header p {{ opacity: 0.9; }}
-        .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }}
-        .stat-card {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .stat-card .number {{ font-size: 36px; font-weight: bold; color: #667eea; }}
-        .stat-card .label {{ color: #666; margin-top: 5px; }}
-        .section {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }}
-        .section h2 {{ color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #667eea; }}
-        table {{ width: 100%; border-collapse: collapse; }}
-        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
-        th {{ background: #f8f9fa; font-weight: 600; color: #333; }}
-        tr:hover {{ background: #f5f5f5; }}
-        .type-badge {{ display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }}
-        .type-Module {{ background: #e3f2fd; color: #1976d2; }}
-        .type-Feature {{ background: #f3e5f5; color: #7b1fa2; }}
-        .type-Document {{ background: #e8f5e9; color: #388e3c; }}
-        .type-Framework {{ background: #fff3e0; color: #f57c00; }}
-        .type-Database {{ background: #fce4ec; color: #c62828; }}
-        .type-Tool {{ background: #e0f2f1; color: #00695c; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 {self.project_name or '项目'} 知识图谱报告</h1>
-            <p>生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}</p>
-        </div>
-        
-        <div class="stats">
-            <div class="stat-card">
-                <div class="number">{len(graph.entities)}</div>
-                <div class="label">实体总数</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">{len(graph.relations)}</div>
-                <div class="label">关系总数</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">{len([e for e in graph.entities if e.type.value == 'Module'])}</div>
-                <div class="label">模块数量</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">{len([e for e in graph.entities if e.type.value == 'Document'])}</div>
-                <div class="label">文档数量</div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>实体列表</h2>
-            <table>
-                <tr><th>名称</th><th>类型</th><th>描述</th><th>来源</th></tr>
-"""
-        
-        for e in graph.entities:
-            html += f"""                <tr>
-                    <td>{e.name}</td>
-                    <td><span class="type-badge type-{e.type.value}">{e.type.value}</span></td>
-                    <td>{e.description or '-'}</td>
-                    <td>{e.source_file or '-'}</td>
-                </tr>
-"""
-        
-        html += """            </table>
-        </div>
-        
-        <div class="section">
-            <h2>关系列表</h2>
-            <table>
-                <tr><th>源</th><th>关系</th><th>目标</th></tr>
-"""
-        
-        for r in graph.relations:
-            html += f"""                <tr>
-                    <td>{r.source}</td>
-                    <td>{r.type.value}</td>
-                    <td>{r.target}</td>
-                </tr>
-"""
-        
-        html += """            </table>
-        </div>
-    </div>
-</body>
-</html>"""
-        
+        from src.renderers import render_report_html
+        content = render_report_html(self.current_graph, self.project_name or '项目')
         with open(output, 'w', encoding='utf-8') as f:
-            f.write(html)
+            f.write(content)
 
 
 # CLI 命令
 @click.group()
 @click.option('--output', '-o', default='output', help='输出目录')
+@click.option('--project', '-p', default=None, help='指定项目名称（默认加载第一个）')
 @click.pass_context
-def cli(ctx, output):
+def cli(ctx, output, project):
     """[bold cyan]RepoMind[/bold cyan] - 智能项目知识图谱生成工具"""
     ctx.ensure_object(dict)
     ctx.obj['kg'] = KnowledgeGraphCLI(output)
+    ctx.obj['project'] = project
 
 
 @cli.command()
 @click.argument('path')
 @click.option('--no-recursive', is_flag=True, help='不递归扫描子目录')
+@click.option('--incremental', '-i', is_flag=True, help='增量更新（只处理变化的文件）')
 @click.pass_context
-def analyze(ctx, path, no_recursive):
+def analyze(ctx, path, no_recursive, incremental):
     """分析本地目录，生成知识图谱"""
-    kg = ctx.obj['kg']
-    result = kg.analyze(path, recursive=not no_recursive)
-    
+    from src.client import is_daemon_running, request_streaming
+
+    if is_daemon_running(port=DAEMON_PORT):
+        result = _analyze_via_daemon(path, incremental, not no_recursive)
+    else:
+        kg = ctx.obj['kg']
+        if incremental:
+            result = kg.analyze_incremental(path, recursive=not no_recursive)
+        else:
+            result = kg.analyze(path, recursive=not no_recursive)
+
     if result:
         console.print("\n[bold]💡 下一步操作:[/bold]")
         console.print("  [cyan]python cli.py summary[/cyan]       查看分析摘要")
@@ -934,21 +1007,140 @@ def analyze(ctx, path, no_recursive):
         console.print("  [cyan]python cli.py interactive[/cyan]   进入交互模式")
 
 
+def _analyze_via_daemon(path, incremental, recursive):
+    from src.client import request_streaming
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+
+    result_data = {}
+    steps = {}
+
+    def on_event(event):
+        etype = event.get("event")
+        if etype == "step":
+            step = event["step"]
+            status = event["status"]
+            if status == "start":
+                label = {"scan": "扫描文件", "read": "读取文件", "diff": "检测变化",
+                         "extract": "提取知识图谱", "build": "构建图谱", "merge": "合并图谱"
+                         }.get(step, step)
+                total = event.get("total")
+                task_id = progress.add_task(f"[cyan]{label}...", total=total)
+                steps[step] = task_id
+            elif status == "done":
+                task_id = steps.get(step)
+                if task_id is not None:
+                    label = {"scan": "扫描完成", "read": "读取完成", "diff": "检测完成",
+                             "extract": "提取完成", "build": "构建完成", "merge": "合并完成"
+                             }.get(step, step)
+                    extra = ""
+                    if "md_count" in event:
+                        extra = f" ({event['md_count']} md, {event['code_count']} code)"
+                    elif "entity_count" in event:
+                        extra = f" ({event['entity_count']} 实体, {event['relation_count']} 关系)"
+                    elif "added" in event:
+                        extra = f" (+{event['added']} ~{event['modified']} -{event['deleted']})"
+                    progress.update(task_id, completed=steps.get(step + "_total", 100),
+                                    description=f"[green]✓ {label}{extra}")
+        elif etype == "progress":
+            step = event["step"]
+            task_id = steps.get(step)
+            if task_id is not None:
+                progress.advance(task_id)
+        elif etype == "result":
+            result_data.update(event.get("data", {}))
+        elif etype == "error":
+            console.print(f"[red]✗ {event.get('error')}[/red]")
+
+    with Progress(
+        SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+        BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(), console=console,
+    ) as progress:
+        resp = request_streaming("analyze", {
+            "path": path, "incremental": incremental, "recursive": recursive
+        }, on_event=on_event, port=DAEMON_PORT)
+
+    if "error" in resp:
+        console.print(f"[red]✗ {resp['error']}[/red]")
+        return None
+
+    result = resp.get("result", result_data)
+    if not result:
+        return None
+
+    if result.get("no_change"):
+        console.print("[green]✓ 没有文件变化，无需更新[/green]")
+        return None
+
+    console.print()
+    if incremental:
+        console.print(Panel(
+            f"[bold green]✓ 增量更新完成![/bold green]\n\n"
+            f"  ➕ 新增: [cyan]{result.get('added', 0)}[/cyan] 个文件\n"
+            f"  ✏️ 修改: [cyan]{result.get('modified', 0)}[/cyan] 个文件\n"
+            f"  🗑️ 删除: [cyan]{result.get('deleted', 0)}[/cyan] 个文件\n"
+            f"  📊 实体: [cyan]{result.get('entities', 0)}[/cyan] 个\n"
+            f"  🔗 关系: [cyan]{result.get('relations', 0)}[/cyan] 个",
+            title="[bold]增量分析结果[/bold]", border_style="green",
+        ))
+    else:
+        console.print(Panel(
+            f"[bold green]✓ 分析完成![/bold green]\n\n"
+            f"  📊 实体: [cyan]{result.get('entities', 0)}[/cyan] 个\n"
+            f"  🔗 关系: [cyan]{result.get('relations', 0)}[/cyan] 个\n"
+            f"  📁 图谱: [dim]{result.get('graph_path', '')}[/dim]\n"
+            f"  🌐 可视化: [dim]{result.get('html_path', '')}[/dim]",
+            title="[bold]分析结果[/bold]", border_style="green",
+        ))
+
+    return result
+
+
 @cli.command()
 @click.pass_context
 def summary(ctx):
     """显示当前项目的分析摘要"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目，请先运行 [cyan]analyze[/cyan] 命令[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("summary", {"project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
+    if result is not None:
+        if isinstance(result, dict) and "error" in result:
+            console.print(f"[red]{result['error']}[/red]")
+            return
+        _display_summary(result)
+        return
+    kg = ctx.obj['kg']
+    if kg.load_graph_by_name(project):
         kg.show_summary()
-    else:
-        console.print("[red]加载知识图谱失败[/red]")
+
+
+def _display_summary(data):
+    from rich import box
+    table = Table(
+        title=f"[bold]📊 {data.get('project', '项目')} 分析报告[/bold]",
+        box=box.ROUNDED, show_header=True, header_style="bold magenta"
+    )
+    table.add_column("类型", style="cyan", width=15)
+    table.add_column("图标", width=4)
+    table.add_column("数量", style="green", justify="right", width=8)
+    table.add_column("占比", style="yellow", justify="right", width=8)
+    total = data.get("entities", 0)
+    for type_name, count in sorted(data.get("types", {}).items(), key=lambda x: -x[1]):
+        icon = ENTITY_ICONS.get(type_name, "•")
+        pct = f"{count/total*100:.1f}%" if total else "0%"
+        table.add_row(type_name, icon, str(count), pct)
+    table.add_section()
+    table.add_row("[bold]总计[/bold]", "📊", f"[bold]{total}[/bold]", "100%")
+    console.print()
+    console.print(table)
+    modules = data.get("modules", [])
+    if modules:
+        console.print()
+        tree = Tree("[bold]📦 核心模块[/bold]")
+        for m in modules:
+            tree.add(f"[cyan]{m}[/cyan]")
+        console.print(tree)
 
 
 @cli.command()
@@ -956,24 +1148,21 @@ def summary(ctx):
 @click.pass_context
 def query(ctx, question):
     """查询知识图谱"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目，请先运行 [cyan]analyze[/cyan] 命令[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("query", {"question": question, "project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
-        answer = kg.query(question)
+    if result is not None:
+        answer = result.get("answer", "") if isinstance(result, dict) else str(result)
         console.print()
-        console.print(Panel(
-            answer,
-            title="[bold]💬 回答[/bold]",
-            border_style="green",
-            padding=(1, 2)
-        ))
-    else:
-        console.print("[red]加载知识图谱失败[/red]")
+        console.print(Panel(answer, title="[bold]💬 回答[/bold]", border_style="green", padding=(1, 2)))
+        return
+    kg = ctx.obj['kg']
+    if not kg.load_graph_by_name(project):
+        return
+    answer = kg.query(question)
+    console.print()
+    console.print(Panel(answer, title="[bold]💬 回答[/bold]", border_style="green", padding=(1, 2)))
 
 
 @cli.command()
@@ -981,14 +1170,30 @@ def query(ctx, question):
 @click.pass_context
 def search(ctx, keyword):
     """搜索实体"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("search", {"keyword": keyword, "project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
+    if result is not None:
+        results = result.get("results", []) if isinstance(result, dict) else []
+        if not results:
+            console.print(f"[yellow]没有找到包含 '{keyword}' 的实体[/yellow]")
+            return
+        from rich import box
+        table = Table(title=f"[bold]🔍 搜索结果: '{keyword}'[/bold]", box=box.ROUNDED)
+        table.add_column("名称", style="cyan")
+        table.add_column("类型", style="magenta")
+        table.add_column("描述", style="dim")
+        for e in results:
+            icon = ENTITY_ICONS.get(e["type"], "•")
+            desc = (e["description"][:30] + "...") if e["description"] and len(e["description"]) > 30 else (e["description"] or "-")
+            table.add_row(f"{icon} {e['name']}", e["type"], desc)
+        console.print()
+        console.print(table)
+        return
+    kg = ctx.obj['kg']
+    project = ctx.obj.get('project')
+    if kg.load_graph_by_name(project):
         kg.search(keyword)
 
 
@@ -997,14 +1202,40 @@ def search(ctx, keyword):
 @click.pass_context
 def entity(ctx, name):
     """查看实体详情"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("entity", {"name": name, "project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
+    if result is not None:
+        if isinstance(result, dict) and "error" in result:
+            console.print(f"[red]{result['error']}[/red]")
+            return
+        icon = ENTITY_ICONS.get(result["type"], "•")
+        console.print()
+        console.print(Panel(
+            f"[bold]{icon} {result['name']}[/bold]\n\n"
+            f"  类型: [cyan]{result['type']}[/cyan]\n"
+            f"  描述: [dim]{result['description'] or '-'}[/dim]\n"
+            f"  来源: [green]{result['source_file'] or '-'}[/green]",
+            title="[bold]实体详情[/bold]", border_style="cyan"
+        ))
+        rels = result.get("relations", [])
+        if rels:
+            from rich import box
+            rel_table = Table(title="[bold]相关关系[/bold]", box=box.SIMPLE)
+            rel_table.add_column("方向", style="cyan", width=8)
+            rel_table.add_column("关系", style="magenta", width=12)
+            rel_table.add_column("实体", style="green")
+            for r in rels:
+                if r["direction"] == "out":
+                    rel_table.add_row("→ 出", r["type"], r["target"])
+                else:
+                    rel_table.add_row("← 入", r["type"], r["source"])
+            console.print()
+            console.print(rel_table)
+        return
+    kg = ctx.obj['kg']
+    if kg.load_graph_by_name(project):
         kg.show_entity(name)
 
 
@@ -1013,14 +1244,32 @@ def entity(ctx, name):
 @click.pass_context
 def deps(ctx, name):
     """查看依赖关系"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("deps", {"name": name, "project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
+    if result is not None:
+        if isinstance(result, dict) and "error" in result:
+            console.print(f"[red]{result['error']}[/red]")
+            return
+        tree = Tree(f"[bold cyan]{name}[/bold cyan] 依赖关系")
+        dep_list = result.get("dependencies", [])
+        dep_in = result.get("dependents", [])
+        if dep_list:
+            branch = tree.add("[bold]依赖 →[/bold]")
+            for d in dep_list:
+                branch.add(f"[green]{d}[/green]")
+        if dep_in:
+            branch = tree.add("[bold]被依赖 ←[/bold]")
+            for d in dep_in:
+                branch.add(f"[yellow]{d}[/yellow]")
+        if not dep_list and not dep_in:
+            tree.add("[dim]无依赖关系[/dim]")
+        console.print()
+        console.print(tree)
+        return
+    kg = ctx.obj['kg']
+    if kg.load_graph_by_name(project):
         kg.show_dependencies(name)
 
 
@@ -1030,14 +1279,16 @@ def deps(ctx, name):
 @click.pass_context
 def export(ctx, format, output):
     """导出知识图谱"""
-    kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目[/red]")
+    project = ctx.obj.get('project')
+    result = _try_daemon("export", {"format": format, "output": output, "project": project})
+    if result == "error":
         return
-    
-    if kg.load_graph(graphs[0]):
+    if result is not None:
+        path = result.get("exported", "") if isinstance(result, dict) else ""
+        console.print(f"[green]✓ 已导出到: {path}[/green]")
+        return
+    kg = ctx.obj['kg']
+    if kg.load_graph_by_name(project):
         kg.export(format, output)
 
 
@@ -1045,26 +1296,29 @@ def export(ctx, format, output):
 @click.pass_context
 def list_graphs(ctx):
     """列出所有已生成的知识图谱"""
-    kg = ctx.obj['kg']
-    graphs = kg.list_graphs()
+    result = _try_daemon("list")
+    if result == "error":
+        return
+    if result is not None:
+        graphs = result.get("graphs", []) if isinstance(result, dict) else []
+    else:
+        kg = ctx.obj['kg']
+        graphs = kg.list_graphs()
     
     if not graphs:
         console.print("[yellow]没有找到已分析的项目[/yellow]")
         return
     
+    from rich import box
     table = Table(
         title="[bold]📁 已分析的项目[/bold]",
-        box=box.ROUNDED,
-        show_header=True,
-        header_style="bold magenta"
+        box=box.ROUNDED, show_header=True, header_style="bold magenta"
     )
     table.add_column("#", style="dim", width=4)
     table.add_column("项目名称", style="cyan")
     table.add_column("操作", style="green")
-    
     for i, name in enumerate(graphs, 1):
         table.add_row(str(i), name, f"python cli.py load {name}")
-    
     console.print()
     console.print(table)
 
@@ -1074,8 +1328,16 @@ def list_graphs(ctx):
 @click.pass_context
 def load(ctx, name):
     """加载指定的知识图谱"""
+    result = _try_daemon("load", {"name": name})
+    if result == "error":
+        return
+    if result is not None:
+        if isinstance(result, dict) and "error" in result:
+            console.print(f"[red]{result['error']}[/red]")
+        else:
+            console.print(f"[green]✓ 已加载: {name}[/green]")
+        return
     kg = ctx.obj['kg']
-    
     if kg.load_graph(name):
         console.print(f"[green]✓ 已加载: {name}[/green]")
         kg.show_summary()
@@ -1088,14 +1350,9 @@ def load(ctx, name):
 def interactive(ctx):
     """进入交互式查询模式"""
     kg = ctx.obj['kg']
-    
-    graphs = kg.list_graphs()
-    if not graphs:
-        console.print("[red]没有找到已分析的项目，请先运行 [cyan]analyze[/cyan] 命令[/red]")
-        return
-    
-    if not kg.load_graph(graphs[0]):
-        console.print("[red]加载知识图谱失败[/red]")
+    project = ctx.obj.get('project')
+
+    if not kg.load_graph_by_name(project):
         return
     
     console.print()
@@ -1248,6 +1505,29 @@ def flowcharts(ctx, output_dir):
             return
     
     kg.generate_all_flowcharts(output_dir)
+
+
+@cli.command()
+@click.option('--port', '-p', default=19832, help='监听端口')
+@click.option('--host', default='127.0.0.1', help='监听地址')
+@click.pass_context
+def serve(ctx, port, host):
+    """启动 daemon 服务器（常驻进程，消除重复启动开销）"""
+    from src.server import run_server
+    run_server(ctx.obj['kg'].output_dir, host, port)
+
+
+@cli.command()
+@click.option('--port', '-p', default=19832, help='daemon 端口')
+@click.option('--host', default='127.0.0.1', help='daemon 地址')
+def stop(port, host):
+    """停止 daemon 服务器"""
+    from src.client import request
+    result = request("stop", host=host, port=port)
+    if "error" in result:
+        console.print(f"[red]✗ {result['error']}[/red]")
+    else:
+        console.print("[green]✓ Daemon 已停止[/green]")
 
 
 if __name__ == '__main__':

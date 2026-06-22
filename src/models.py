@@ -60,6 +60,15 @@ class KnowledgeGraph(BaseModel):
     relations: List[Relation] = []
 
 
+class FileRecord(BaseModel):
+    path: str
+    content_hash: str
+
+
+class FileManifest(BaseModel):
+    files: List[FileRecord] = []
+
+
 class RepositoryContext(BaseModel):
     repo_url: str
     repo_name: str

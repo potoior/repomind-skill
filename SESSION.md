@@ -18,7 +18,6 @@
 src/
 ├── models.py              # 数据模型（Entity, Relation, Document）
 ├── repository_loader.py   # 仓库加载器
-├── document_parser.py     # 文档解析器
 ├── knowledge_extractor.py # 知识提取器
 ├── graph_builder.py       # 图谱构建器
 ├── query_engine.py        # 查询引擎
@@ -143,7 +142,6 @@ python cli.py interactive
 ```
 repomind-skill/
 ├── cli.py                          # CLI入口（Click）
-├── main.py                         # 交互式入口
 ├── requirements.txt                # 依赖
 ├── .gitignore                      # Git忽略规则
 ├── readme.md                       # 项目说明
@@ -155,7 +153,8 @@ repomind-skill/
 │   ├── knowledge_extractor.py      # 知识提取（核心）
 │   ├── graph_builder.py            # 图谱构建
 │   ├── query_engine.py             # 查询引擎
-│   └── qa_engine.py                # 问答引擎
+│   ├── qa_engine.py                # 问答引擎
+│   └── flow_analyzer.py            # API流程分析
 ├── tests/
 │   └── test_basic.py               # 基础测试
 └── data/

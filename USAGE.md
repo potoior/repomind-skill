@@ -9,31 +9,21 @@ pip install -r requirements.txt
 ## 运行程序
 
 ```bash
-python main.py
-```
+# 分析项目
+python cli.py analyze /path/to/project
 
-## 可用命令
+# 查看摘要
+python cli.py summary
 
-### 分析仓库
-```
-analyze https://github.com/username/repo
-```
+# 查询知识图谱
+python cli.py query "模块"
+python cli.py query "技术栈"
 
-### 查询知识图谱
-```
-query 什么是MCP
-query ModuleA依赖什么
-query 有哪些模块
-```
+# 交互式查询
+python cli.py interactive
 
-### 显示图谱摘要
-```
-show
-```
-
-### 导出图谱
-```
-export filename.json
+# 指定项目名（当有多个分析结果时）
+python cli.py -p medium-project summary
 ```
 
 ## 示例输出
