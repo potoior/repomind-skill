@@ -72,6 +72,9 @@ class RepoMindHandler(BaseHTTPRequestHandler):
         path = args.get("path", "")
         incremental = args.get("incremental", False)
         recursive = args.get("recursive", True)
+        use_llm = args.get("llm", False)
+        model = args.get("model", "gpt-4o-mini")
+        api_key = args.get("api_key")
         p = Path(path)
 
         if not p.exists():
@@ -134,12 +137,14 @@ class RepoMindHandler(BaseHTTPRequestHandler):
 
         yield {"event": "step", "step": "read", "status": "done"}
 
-        if incremental:
-            yield from self._do_incremental(p, md_data, code_data)
-        else:
-            yield from self._do_full(p, md_data, code_data)
+        llm_opts = {"use_llm": use_llm, "model": model, "api_key": api_key}
 
-    def _do_full(self, p, md_data, code_data):
+        if incremental:
+            yield from self._do_incremental(p, md_data, code_data, llm_opts)
+        else:
+            yield from self._do_full(p, md_data, code_data, llm_opts)
+
+    def _do_full(self, p, md_data, code_data, llm_opts=None):
         yield {"event": "step", "step": "extract", "status": "start"}
 
         from src.models import Document
@@ -153,7 +158,16 @@ class RepoMindHandler(BaseHTTPRequestHandler):
             headings = [l.strip() for l in content.split("\n") if l.startswith("#")]
             documents.append(Document(path=rel, title=title, content=content, headings=headings))
 
-        entities, relations = self.kg.extractor.extract_from_documents(documents, code_data)
+        if llm_opts and llm_opts.get("use_llm"):
+            from src.llm_extractor import LLMExtractor
+            extractor = LLMExtractor(
+                api_key=llm_opts.get("api_key"),
+                model=llm_opts.get("model", "gpt-4o-mini"),
+            )
+        else:
+            extractor = self.kg.extractor
+
+        entities, relations = extractor.extract_from_documents(documents, code_data)
         yield {"event": "step", "step": "extract", "status": "done",
                "entity_count": len(entities), "relation_count": len(relations)}
 
@@ -172,14 +186,23 @@ class RepoMindHandler(BaseHTTPRequestHandler):
             "html_path": html_path,
         }}
 
-    def _do_incremental(self, p, md_data, code_data):
+    def _do_incremental(self, p, md_data, code_data, llm_opts=None):
         from src.incremental import IncrementalAnalyzer
         from src.models import FileRecord, FileManifest, KnowledgeGraph
+
+        if llm_opts and llm_opts.get("use_llm"):
+            from src.llm_extractor import LLMExtractor
+            extractor = LLMExtractor(
+                api_key=llm_opts.get("api_key"),
+                model=llm_opts.get("model", "gpt-4o-mini"),
+            )
+        else:
+            extractor = self.kg.extractor
 
         repo_name = p.name
         self.kg.project_name = repo_name
         manifest_path = self.kg.output_dir / f"{repo_name}.manifest.json"
-        incremental = IncrementalAnalyzer(self.kg.extractor, manifest_path)
+        incremental = IncrementalAnalyzer(extractor, manifest_path)
 
         yield {"event": "step", "step": "diff", "status": "start"}
         current = incremental.compute_current_files(md_data, code_data)

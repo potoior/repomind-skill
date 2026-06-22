@@ -31,3 +31,4 @@ jobs:
           python tests/test_flow_analyzer.py
           python tests/test_qa_engine.py
           python tests/test_incremental.py
+          python tests/test_llm_extractor.py

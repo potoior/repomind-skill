@@ -986,15 +986,23 @@ def cli(ctx, output, project):
 @click.argument('path')
 @click.option('--no-recursive', is_flag=True, help='不递归扫描子目录')
 @click.option('--incremental', '-i', is_flag=True, help='增量更新（只处理变化的文件）')
+@click.option('--llm', is_flag=True, help='使用 LLM 提取知识（需要 OPENAI_API_KEY）')
+@click.option('--model', default='gpt-4o-mini', help='LLM 模型名称')
+@click.option('--api-key', default=None, help='OpenAI API Key（也可通过环境变量设置）')
 @click.pass_context
-def analyze(ctx, path, no_recursive, incremental):
+def analyze(ctx, path, no_recursive, incremental, llm, model, api_key):
     """分析本地目录，生成知识图谱"""
-    from src.client import is_daemon_running, request_streaming
+    from src.client import is_daemon_running
+
+    llm_opts = {"llm": llm, "model": model, "api_key": api_key} if llm else {}
 
     if is_daemon_running(port=DAEMON_PORT):
-        result = _analyze_via_daemon(path, incremental, not no_recursive)
+        result = _analyze_via_daemon(path, incremental, not no_recursive, llm_opts)
     else:
         kg = ctx.obj['kg']
+        if llm:
+            from src.llm_extractor import LLMExtractor
+            kg._extractor = LLMExtractor(api_key=api_key, model=model)
         if incremental:
             result = kg.analyze_incremental(path, recursive=not no_recursive)
         else:
@@ -1007,7 +1015,7 @@ def analyze(ctx, path, no_recursive, incremental):
         console.print("  [cyan]python cli.py interactive[/cyan]   进入交互模式")
 
 
-def _analyze_via_daemon(path, incremental, recursive):
+def _analyze_via_daemon(path, incremental, recursive, llm_opts=None):
     from src.client import request_streaming
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
@@ -1057,7 +1065,8 @@ def _analyze_via_daemon(path, incremental, recursive):
         TimeElapsedColumn(), console=console,
     ) as progress:
         resp = request_streaming("analyze", {
-            "path": path, "incremental": incremental, "recursive": recursive
+            "path": path, "incremental": incremental, "recursive": recursive,
+            **(llm_opts or {}),
         }, on_event=on_event, port=DAEMON_PORT)
 
     if "error" in resp:
