@@ -1346,6 +1346,119 @@ def batch_analyze(ctx, paths, parent, no_recursive, llm, model, api_key, base_ur
 
 
 @cli.command()
+@click.argument('path')
+@click.option('--interval', '-i', default=2.0, help='检查间隔（秒）')
+@click.option('--no-recursive', is_flag=True, help='不递归监听子目录')
+@click.option('--llm', is_flag=True, help='使用 LLM 提取知识')
+@click.option('--model', default=None, help='LLM 模型名称')
+@click.option('--api-key', default=None, help='API Key')
+@click.option('--base-url', default=None, help='API Base URL')
+@click.pass_context
+def watch(ctx, path, interval, no_recursive, llm, model, api_key, base_url):
+    """监听文件变化，自动重新分析
+    
+    示例:
+      cli.py watch ./my-project
+      cli.py watch ./my-project --interval 5
+    """
+    from src.file_watcher import FileWatcher, WatchConfig, format_change_event
+    
+    # 验证路径
+    watch_path = Path(path)
+    if not watch_path.exists():
+        console.print(f"[red]✗ 路径不存在: {path}[/red]")
+        return
+    
+    if not watch_path.is_dir():
+        console.print(f"[red]✗ 不是目录: {path}[/red]")
+        return
+    
+    # 配置监听器
+    config = WatchConfig(
+        path=str(watch_path),
+        recursive=not no_recursive
+    )
+    
+    # 变更处理回调
+    changes_buffer = []
+    
+    def on_change(event):
+        """处理文件变更事件"""
+        console.print(format_change_event(event))
+        changes_buffer.append(event)
+    
+    # 创建监听器
+    watcher = FileWatcher(config, on_change)
+    
+    console.print()
+    console.print(Panel(
+        f"[bold]👀 Watch 模式[/bold]\n\n"
+        f"  监听路径: [cyan]{path}[/cyan]\n"
+        f"  检查间隔: [yellow]{interval}秒[/yellow]\n"
+        f"  递归监听: [green]{'是' if not no_recursive else '否'}[/green]\n\n"
+        f"  [dim]按 Ctrl+C 停止监听[/dim]",
+        title="[bold]开始监听[/bold]",
+        border_style="cyan"
+    ))
+    
+    # 首次分析
+    console.print("\n[bold]📊 执行首次分析...[/bold]")
+    kg = ctx.obj['kg']
+    
+    if llm:
+        from src.llm_extractor import LLMExtractor
+        kg._extractor = LLMExtractor(api_key=api_key, model=model, base_url=base_url)
+    
+    result = kg.analyze(str(watch_path), recursive=not no_recursive)
+    
+    if result:
+        console.print(f"[green]✓ 首次分析完成: {result.get('entities', 0)} 实体, {result.get('relations', 0)} 关系[/green]")
+    else:
+        console.print("[yellow]⚠ 首次分析失败，继续监听...[/yellow]")
+    
+    # 开始监听
+    console.print()
+    
+    try:
+        watcher.running = True
+        watcher.file_hashes = watcher.scan_directory()
+        console.print(f"[green]✓ 开始监听: {len(watcher.file_hashes)} 个文件[/green]\n")
+        
+        last_analyze_time = 0
+        analyze_cooldown = 5.0  # 分析冷却时间（秒）
+        
+        while watcher.running:
+            changes = watcher.detect_changes()
+            
+            for change in changes:
+                if watcher._debounce(change.path):
+                    on_change(change)
+            
+            # 如果有变更且冷却时间已过，执行增量分析
+            if changes_buffer and (time.time() - last_analyze_time) > analyze_cooldown:
+                console.print(f"\n[bold]🔄 检测到 {len(changes_buffer)} 个变更，执行增量分析...[/bold]")
+                
+                try:
+                    result = kg.analyze_incremental(str(watch_path), recursive=not no_recursive)
+                    if result:
+                        console.print(f"[green]✓ 增量分析完成: {result.get('entities', 0)} 实体, {result.get('relations', 0)} 关系[/green]")
+                    else:
+                        console.print("[yellow]⚠ 增量分析失败[/yellow]")
+                except Exception as e:
+                    console.print(f"[red]✗ 分析错误: {e}[/red]")
+                
+                changes_buffer.clear()
+                last_analyze_time = time.time()
+                console.print()
+            
+            time.sleep(interval)
+    
+    except KeyboardInterrupt:
+        console.print("\n[yellow]👋 停止监听[/yellow]")
+        watcher.running = False
+
+
+@cli.command()
 @click.pass_context
 def summary(ctx):
     """显示当前项目的分析摘要"""
