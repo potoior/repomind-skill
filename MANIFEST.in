@@ -1,0 +1,12 @@
+include LICENSE
+include readme.md
+include requirements.txt
+include .env.example
+
+recursive-include repomind *.md *.txt *.example
+
+prune tests
+prune data
+prune output
+prune flowcharts
+prune .github

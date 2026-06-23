@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.flow_analyzer import FlowAnalyzer, FunctionInfo, APIEndpoint, CallChain, analyze_project_flows
+from repomind.flow_analyzer import FlowAnalyzer, FunctionInfo, APIEndpoint, CallChain, analyze_project_flows
 
 
 def test_extract_functions():

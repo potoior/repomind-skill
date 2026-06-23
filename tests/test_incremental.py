@@ -4,9 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph, FileRecord, FileManifest
-from src.knowledge_extractor import KnowledgeExtractor
-from src.incremental import IncrementalAnalyzer, compute_hash
+from repomind.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph, FileRecord, FileManifest
+from repomind.knowledge_extractor import KnowledgeExtractor
+from repomind.incremental import IncrementalAnalyzer, compute_hash
 
 
 def _make_analyzer(tmp_dir: str = None):

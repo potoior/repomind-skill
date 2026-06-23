@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph
-from src.qa_engine import QAEngine
+from repomind.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph
+from repomind.qa_engine import QAEngine
 
 
 def _make_engine():

@@ -6,8 +6,8 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.llm_extractor import LLMExtractor, ENTITY_TYPE_MAP, RELATION_TYPE_MAP
-from src.models import EntityType, RelationType
+from repomind.llm_extractor import LLMExtractor, ENTITY_TYPE_MAP, RELATION_TYPE_MAP
+from repomind.models import EntityType, RelationType
 
 
 def test_entity_type_map_coverage():
@@ -76,7 +76,7 @@ def test_parse_relation_without_matching_entities():
 
 
 def test_deduplicate_entities():
-    from src.models import Entity
+    from repomind.models import Entity
     ext = LLMExtractor(api_key="test")
     entities = [
         Entity(name="Foo", type=EntityType.MODULE),
@@ -88,7 +88,7 @@ def test_deduplicate_entities():
 
 
 def test_deduplicate_relations():
-    from src.models import Relation
+    from repomind.models import Relation
     ext = LLMExtractor(api_key="test")
     relations = [
         Relation(source="A", target="B", type=RelationType.USES),

@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models import KnowledgeGraph, Entity, Relation, EntityType, RelationType
-from src.graph_merge import merge_graphs, format_merge_summary, MergeOptions
+from repomind.models import KnowledgeGraph, Entity, Relation, EntityType, RelationType
+from repomind.graph_merge import merge_graphs, format_merge_summary, MergeOptions
 
 
 def _make_graph_1():

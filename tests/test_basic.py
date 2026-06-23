@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph
-from src.query_engine import QueryEngine
+from repomind.models import Entity, EntityType, Relation, RelationType, KnowledgeGraph
+from repomind.query_engine import QueryEngine
 
 
 def test_query_engine():

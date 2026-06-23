@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.models import KnowledgeGraph, Entity, Relation, EntityType, RelationType
-from src.advanced_search import search_entities, SearchOptions, search_with_context, _match_text
+from repomind.models import KnowledgeGraph, Entity, Relation, EntityType, RelationType
+from repomind.advanced_search import search_entities, SearchOptions, search_with_context, _match_text
 
 
 def _make_test_graph():

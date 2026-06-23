@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.file_watcher import FileWatcher, WatchConfig, FileChangeEvent, format_change_event
+from repomind.file_watcher import FileWatcher, WatchConfig, FileChangeEvent, format_change_event
 
 
 def _create_temp_dir():
