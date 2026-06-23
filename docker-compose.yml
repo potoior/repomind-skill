@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  repomind-web:
+    build: .
+    container_name: repomind-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/repos:/data/repos
+      - ./data/output:/data/output
+      - ./.env:/app/.env:ro
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/projects"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  repomind-daemon:
+    build: .
+    container_name: repomind-daemon
+    command: ["repomind", "serve", "--host", "0.0.0.0", "--port", "19832"]
+    ports:
+      - "19832:19832"
+    volumes:
+      - ./data/repos:/data/repos
+      - ./data/output:/data/output
+      - ./.env:/app/.env:ro
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+    restart: unless-stopped
+
+volumes:
+  data:

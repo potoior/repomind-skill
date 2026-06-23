@@ -2777,6 +2777,304 @@ def stop(port, host):
         console.print("[green]✓ Daemon 已停止[/green]")
 
 
+@cli.command()
+@click.argument('url')
+@click.option('--branch', '-b', default=None, help='分支名称')
+@click.option('--output', '-o', default='repos', help='克隆目录')
+@click.pass_context
+def clone(ctx, url, branch, output):
+    """克隆GitHub仓库并分析
+    
+    示例:
+      repomind clone https://github.com/owner/repo
+      repomind clone owner/repo
+      repomind clone git@github.com:owner/repo.git -b develop
+    """
+    from repomind.github_integration import parse_github_url, clone_repo, get_repo_info
+    
+    try:
+        repo = parse_github_url(url)
+        console.print(f"[bold]📦 克隆仓库: [cyan]{repo.owner}/{repo.name}[/cyan][/bold]\n")
+        
+        local_path = clone_repo(repo, output, branch)
+        console.print(f"[green]✓ 克隆完成: {local_path}[/green]")
+        
+        # 获取仓库信息
+        info = get_repo_info(local_path)
+        console.print(f"\n[bold]📊 仓库信息:[/bold]")
+        console.print(f"  分支: [cyan]{info.get('branch', 'N/A')}[/cyan]")
+        console.print(f"  文件数: [cyan]{info.get('total_files', 'N/A')}[/cyan]")
+        
+        if 'last_commit' in info:
+            commit = info['last_commit']
+            console.print(f"  最新提交: [dim]{commit['message']}[/dim]")
+            console.print(f"  作者: [dim]{commit['author']}[/dim]")
+            console.print(f"  日期: [dim]{commit['date']}[/dim]")
+        
+        # 提示下一步
+        console.print("\n[bold]💡 下一步操作:[/bold]")
+        console.print(f"  [cyan]repomind analyze {local_path}[/cyan]  分析仓库")
+        
+    except Exception as e:
+        console.print(f"[red]✗ 错误: {e}[/red]")
+
+
+@cli.command('export-neo4j')
+@click.option('--format', '-f', type=click.Choice(['cypher', 'json', 'csv']), default='cypher', help='导出格式')
+@click.option('--output', '-o', help='输出路径')
+@click.pass_context
+def export_neo4j(ctx, format, output):
+    """导出为Neo4j格式
+    
+    示例:
+      repomind export-neo4j -f cypher -o graph.cypher
+      repomind export-neo4j -f json -o graph.json
+      repomind export-neo4j -f csv -o neo4j_import/
+    """
+    from repomind.neo4j_export import export_to_neo4j_cypher, export_to_neo4j_json, export_to_neo4j_csv
+    
+    kg = ctx.obj['kg']
+    project = ctx.obj.get('project')
+    
+    if not kg.load_graph_by_name(project):
+        return
+    
+    graph = kg.current_graph
+    
+    if format == 'cypher':
+        if not output:
+            output = f"{project or 'graph'}.cypher"
+        result = export_to_neo4j_cypher(graph, output)
+        console.print(f"[green]✓ Cypher脚本已导出: {output}[/green]")
+    
+    elif format == 'json':
+        if not output:
+            output = f"{project or 'graph'}_neo4j.json"
+        result = export_to_neo4j_json(graph, output)
+        console.print(f"[green]✓ JSON已导出: {output}[/green]")
+    
+    elif format == 'csv':
+        if not output:
+            output = "neo4j_import"
+        result = export_to_neo4j_csv(graph, output)
+        console.print(f"[green]✓ CSV已导出到: {output}/[/green]")
+        console.print(f"  节点文件: [dim]{result['nodes_file']}[/dim]")
+        console.print(f"  关系文件: [dim]{result['relationships_file']}[/dim]")
+        console.print(f"  导入脚本: [dim]{result['import_script']}[/dim]")
+
+
+@cli.command('git-history')
+@click.option('--max-commits', '-n', default=100, help='最大提交数')
+@click.option('--since', '-s', help='起始日期 (YYYY-MM-DD)')
+@click.pass_context
+def git_history(ctx, max_commits, since):
+    """分析Git历史
+    
+    示例:
+      repomind git-history
+      repomind git-history -n 500
+      repomind git-history --since 2024-01-01
+    """
+    from repomind.git_history import get_commit_history, get_contributors, analyze_repo_evolution, generate_contributor_graph
+    
+    kg = ctx.obj['kg']
+    
+    # 查找仓库路径
+    repo_path = None
+    if kg.current_path and Path(kg.current_path).exists():
+        repo_path = str(kg.current_path)
+    else:
+        console.print("[red]✗ 请先分析一个项目[/red]")
+        return
+    
+    console.print(f"[bold]📊 分析Git历史: [cyan]{repo_path}[/cyan][/bold]\n")
+    
+    # 分析演变
+    evolution = analyze_repo_evolution(repo_path, max_commits)
+    
+    if not evolution:
+        console.print("[yellow]⚠ 没有找到Git历史[/yellow]")
+        return
+    
+    # 显示统计
+    stats_table = Table(
+        title="[bold]📈 Git统计[/bold]",
+        box=box.ROUNDED, show_header=True, header_style="bold magenta"
+    )
+    stats_table.add_column("指标", style="cyan")
+    stats_table.add_column("值", style="green")
+    
+    stats_table.add_row("总提交数", str(evolution.get('total_commits', 0)))
+    stats_table.add_row("总新增行", str(evolution.get('total_insertions', 0)))
+    stats_table.add_row("总删除行", str(evolution.get('total_deletions', 0)))
+    stats_table.add_row("净变化", str(evolution.get('net_change', 0)))
+    stats_table.add_row("首次提交", evolution.get('first_commit', 'N/A'))
+    stats_table.add_row("最新提交", evolution.get('last_commit', 'N/A'))
+    
+    console.print(stats_table)
+    
+    # 显示贡献者
+    contributors = get_contributors(repo_path, max_commits)
+    
+    if contributors:
+        console.print()
+        contrib_table = Table(
+            title="[bold]👥 贡献者[/bold]",
+            box=box.ROUNDED, show_header=True, header_style="bold cyan"
+        )
+        contrib_table.add_column("#", style="dim", width=4)
+        contrib_table.add_column("名称", style="cyan")
+        contrib_table.add_column("提交数", style="green", justify="right")
+        contrib_table.add_column("新增行", style="green", justify="right")
+        contrib_table.add_column("删除行", style="red", justify="right")
+        
+        for i, c in enumerate(contributors[:10], 1):
+            contrib_table.add_row(
+                str(i), c.name, str(c.commits),
+                str(c.insertions), str(c.deletions)
+            )
+        
+        console.print(contrib_table)
+    
+    # 生成贡献者图谱
+    if contributors:
+        graph_file = "contributors.md"
+        generate_contributor_graph(contributors, graph_file)
+        console.print(f"\n[green]✓ 贡献者图谱已生成: {graph_file}[/green]")
+
+
+@cli.command()
+@click.argument('plugin_name')
+@click.argument('plugin_type', type=click.Choice(['extractor', 'renderer', 'exporter']))
+@click.option('--output', '-o', help='输出目录')
+def create_plugin(plugin_name, plugin_type, output):
+    """创建插件模板
+    
+    示例:
+      repomind create-plugin my-extractor extractor
+      repomind create-plugin my-renderer renderer
+    """
+    from repomind.plugin_system import create_plugin_template
+    
+    try:
+        plugin_file = create_plugin_template(plugin_name, plugin_type, output)
+        console.print(f"[green]✓ 插件模板已创建: {plugin_file}[/green]")
+        console.print("\n[bold]📝 下一步:[/bold]")
+        console.print(f"  1. 编辑 [cyan]{plugin_file}[/cyan]")
+        console.print("  2. 实现提取/渲染/导出逻辑")
+        console.print("  3. 插件会自动被加载")
+    except Exception as e:
+        console.print(f"[red]✗ 创建失败: {e}[/red]")
+
+
+@cli.command('list-plugins')
+def list_plugins():
+    """列出所有插件"""
+    from repomind.plugin_system import get_plugin_manager
+    
+    manager = get_plugin_manager()
+    manager.load_all_plugins()
+    
+    plugins = manager.list_plugins()
+    
+    if not plugins:
+        console.print("[yellow]没有找到插件[/yellow]")
+        console.print("\n[bold]💡 创建插件:[/bold]")
+        console.print("  [cyan]repomind create-plugin my-plugin extractor[/cyan]")
+        return
+    
+    table = Table(
+        title="[bold]🔌 已安装插件[/bold]",
+        box=box.ROUNDED, show_header=True, header_style="bold magenta"
+    )
+    table.add_column("名称", style="cyan")
+    table.add_column("类型", style="magenta")
+    table.add_column("版本", style="green")
+    table.add_column("描述", style="dim")
+    table.add_column("状态", style="green")
+    
+    for plugin in plugins:
+        status = "✓ 启用" if plugin['enabled'] else "✗ 禁用"
+        table.add_row(
+            plugin['name'],
+            plugin['type'],
+            plugin['version'],
+            plugin['description'],
+            status
+        )
+    
+    console.print(table)
+
+
+@cli.command('parallel-analyze')
+@click.argument('path')
+@click.option('--workers', '-w', default=4, help='并行线程数')
+@click.option('--benchmark', is_flag=True, help='运行基准测试')
+@click.pass_context
+def parallel_analyze(ctx, path, workers, benchmark):
+    """并行分析（多线程）
+    
+    示例:
+      repomind parallel-analyze ./my-project
+      repomind parallel-analyze ./my-project -w 8
+      repomind parallel-analyze ./my-project --benchmark
+    """
+    from repomind.parallel_extractor import extract_from_directory_parallel, benchmark_extraction
+    
+    if benchmark:
+        console.print(f"[bold]🏃 运行基准测试...[/bold]\n")
+        results = benchmark_extraction(path, [1, 2, 4, 8])
+        
+        table = Table(
+            title="[bold]📊 基准测试结果[/bold]",
+            box=box.ROUNDED, show_header=True, header_style="bold magenta"
+        )
+        table.add_column("线程数", style="cyan")
+        table.add_column("时间(秒)", style="green")
+        table.add_column("实体数", style="green")
+        table.add_column("关系数", style="green")
+        
+        for workers, data in results.items():
+            table.add_row(
+                str(workers),
+                str(data['time']),
+                str(data['entities']),
+                str(data['relations'])
+            )
+        
+        console.print(table)
+        return
+    
+    console.print(f"[bold]⚡ 并行分析: [cyan]{path}[/cyan] (线程数: {workers})[/bold]\n")
+    
+    def progress_callback(current, total):
+        console.print(f"\r  进度: {current}/{total}", end='')
+    
+    try:
+        graph, stats = extract_from_directory_parallel(path, workers, progress_callback=progress_callback)
+        console.print()  # 换行
+        
+        console.print(f"\n[green]✓ 分析完成![/green]")
+        console.print(f"  实体: [cyan]{stats['entities']}[/cyan]")
+        console.print(f"  关系: [cyan]{stats['relations']}[/cyan]")
+        console.print(f"  成功: [cyan]{stats['success']}[/cyan]")
+        console.print(f"  失败: [red]{stats['failed']}[/red]")
+        
+        if stats['errors']:
+            console.print(f"\n[yellow]⚠ 失败详情:[/yellow]")
+            for err in stats['errors'][:5]:
+                console.print(f"  - {err['file']}: {err['error']}")
+        
+        # 保存结果
+        kg = ctx.obj['kg']
+        output_name = Path(path).name
+        graph_path = kg.builder.save_graph(graph, output_name)
+        console.print(f"\n[green]✓ 图谱已保存: {graph_path}[/green]")
+        
+    except Exception as e:
+        console.print(f"[red]✗ 错误: {e}[/red]")
+
+
 def main():
     """主入口函数"""
     cli()

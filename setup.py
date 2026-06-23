@@ -23,7 +23,8 @@ setup(
     extras_require={
         "git": ["gitpython>=3.1.0"],
         "web": ["fastapi>=0.100.0", "uvicorn>=0.23.0"],
-        "all": ["gitpython>=3.1.0", "fastapi>=0.100.0", "uvicorn>=0.23.0"],
+        "docker": ["docker>=6.0.0"],
+        "all": ["gitpython>=3.1.0", "fastapi>=0.100.0", "uvicorn>=0.23.0", "docker>=6.0.0"],
     },
     entry_points={
         "console_scripts": [
