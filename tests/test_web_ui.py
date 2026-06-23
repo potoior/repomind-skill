@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
-from repomind.web_ui import create_app, set_output_dir
+from repomind.web_ui import create_app, set_output_dir, _state
 from repomind.models import KnowledgeGraph, Entity, Relation, EntityType, RelationType
 from repomind.graph_builder import GraphBuilder
 import tempfile
@@ -28,6 +28,11 @@ def _create_test_graph():
 
 def _setup_test_data():
     """设置测试数据"""
+    # 重置状态
+    _state["graphs"] = {}
+    _state["current_graph"] = None
+    _state["current_name"] = None
+    
     temp_dir = tempfile.mkdtemp()
     graph = _create_test_graph()
     builder = GraphBuilder(temp_dir)
