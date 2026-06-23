@@ -4,6 +4,8 @@
 import sys
 import os
 import io
+import readline
+import atexit
 from pathlib import Path
 
 def _load_dotenv():
@@ -42,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 console = Console(force_terminal=True)
 
 # ASCII Art Logo
-LOGO = """
+LOGO = r"""
 [bold cyan]
   ____                _           __  __            _ _
  |  _ \ ___  _ __   (_)_ __   |  \/  | ___ _ __ (_) |_ ___  _ __
@@ -736,6 +738,20 @@ class KnowledgeGraphCLI:
         
         with open(self.output_dir / "api_endpoints.json", 'w', encoding='utf-8') as f:
             json.dump(endpoints_data, f, ensure_ascii=False, indent=2)
+        
+        # 保存调用链信息
+        chains_data = []
+        for chain in self.flow_analyzer.call_chains:
+            chains_data.append({
+                "entry_point": chain.entry_point,
+                "file": chain.file_path,
+                "description": chain.description,
+                "steps": chain.steps,
+                "depth": chain.depth
+            })
+        
+        with open(self.output_dir / "call_chains.json", 'w', encoding='utf-8') as f:
+            json.dump(chains_data, f, ensure_ascii=False, indent=2)
     
     def _load_flow_analysis(self) -> bool:
         """加载流程分析结果"""
@@ -761,37 +777,29 @@ class KnowledgeGraphCLI:
             return
         
         analyzer = self.flow_analyzer
-        
-        # API端点统计
         endpoints = analyzer.api_endpoints
         functions = analyzer.functions
+        chains = analyzer.call_chains
         
         console.print()
         
-        # 显示统计信息
         stats_table = Table(
             title="[bold]📊 流程分析统计[/bold]",
-            box=box.ROUNDED,
-            show_header=True,
-            header_style="bold magenta"
+            box=box.ROUNDED, show_header=True, header_style="bold magenta"
         )
         stats_table.add_column("指标", style="cyan")
         stats_table.add_column("数量", style="green", justify="right")
-        
         stats_table.add_row("API端点", str(len(endpoints)))
         stats_table.add_row("函数", str(len(functions)))
+        stats_table.add_row("调用链", str(len(chains)))
         stats_table.add_row("代码文件", str(len(set(f.file_path for f in functions.values()))))
-        
         console.print(stats_table)
         
-        # 显示API列表
         if endpoints:
             console.print()
             api_table = Table(
                 title="[bold]🌐 API端点[/bold]",
-                box=box.ROUNDED,
-                show_header=True,
-                header_style="bold cyan"
+                box=box.ROUNDED, show_header=True, header_style="bold cyan"
             )
             api_table.add_column("#", style="dim", width=4)
             api_table.add_column("方法", style="bold")
@@ -801,69 +809,115 @@ class KnowledgeGraphCLI:
             api_table.add_column("文件", style="dim")
             
             for i, endpoint in enumerate(endpoints, 1):
-                method_colors = {
-                    'GET': 'green',
-                    'POST': 'blue',
-                    'PUT': 'yellow',
-                    'DELETE': 'red',
-                    'PATCH': 'magenta'
-                }
+                method_colors = {'GET': 'green', 'POST': 'blue', 'PUT': 'yellow', 'DELETE': 'red', 'PATCH': 'magenta'}
                 method_color = method_colors.get(endpoint.method, 'white')
-                
                 api_table.add_row(
-                    str(i),
-                    f"[{method_color}]{endpoint.method}[/{method_color}]",
-                    endpoint.path,
-                    endpoint.handler,
-                    str(len(endpoint.steps)),
-                    endpoint.file_path
+                    str(i), f"[{method_color}]{endpoint.method}[/{method_color}]",
+                    endpoint.path, endpoint.handler, str(len(endpoint.steps)), endpoint.file_path
                 )
-            
             console.print(api_table)
+        
+        if chains:
+            console.print()
+            chain_table = Table(
+                title="[bold]🔗 函数调用链[/bold]",
+                box=box.ROUNDED, show_header=True, header_style="bold green"
+            )
+            chain_table.add_column("#", style="dim", width=4)
+            chain_table.add_column("入口函数", style="cyan")
+            chain_table.add_column("描述", style="dim")
+            chain_table.add_column("深度", style="yellow", justify="right")
+            chain_table.add_column("文件", style="dim")
+            
+            for i, chain in enumerate(chains[:15], 1):
+                desc = (chain.description[:30] + "...") if chain.description and len(chain.description) > 30 else (chain.description or "-")
+                chain_table.add_row(str(i), chain.entry_point, desc, str(chain.depth), chain.file_path)
+            console.print(chain_table)
     
     def show_flow_detail(self, index: int) -> None:
-        """显示特定API的流程详情"""
+        """显示特定API或调用链的流程详情"""
         if not self.flow_analyzer:
             console.print("[red]请先分析项目流程[/red]")
             return
         
         endpoints = self.flow_analyzer.api_endpoints
+        chains = self.flow_analyzer.call_chains
         
-        if index < 1 or index > len(endpoints):
+        if index < 1:
             console.print(f"[red]无效的索引: {index}[/red]")
             return
         
-        endpoint = endpoints[index - 1]
-        
-        console.print()
-        console.print(Panel(
-            f"[bold]{endpoint.method} {endpoint.path}[/bold]\n\n"
-            f"  处理函数: [cyan]{endpoint.handler}[/cyan]\n"
-            f"  文件: [dim]{endpoint.file_path}[/dim]\n"
-            f"  步骤数: [green]{len(endpoint.steps)}[/green]",
-            title="[bold]API详情[/bold]",
-            border_style="cyan"
-        ))
-        
-        # 显示调用链
-        if endpoint.steps:
+        # API端点索引范围: 1..len(endpoints)
+        if index <= len(endpoints):
+            endpoint = endpoints[index - 1]
+            
             console.print()
-            tree = Tree("[bold]📞 调用链[/bold]")
+            console.print(Panel(
+                f"[bold]{endpoint.method} {endpoint.path}[/bold]\n\n"
+                f"  处理函数: [cyan]{endpoint.handler}[/cyan]\n"
+                f"  文件: [dim]{endpoint.file_path}[/dim]\n"
+                f"  步骤数: [green]{len(endpoint.steps)}[/green]",
+                title="[bold]API详情[/bold]",
+                border_style="cyan"
+            ))
             
-            for i, step in enumerate(endpoint.steps):
-                func_info = self.flow_analyzer.functions.get(step)
-                if func_info:
-                    desc = func_info.description or ""
-                    file_info = f"[dim]{func_info.file_path}[/dim]"
-                    node_text = f"[cyan]{step}[/cyan]"
-                    if desc:
-                        node_text += f" - [green]{desc}[/green]"
-                    node_text += f" {file_info}"
-                    tree.add(node_text)
-                else:
-                    tree.add(f"[cyan]{step}[/cyan]")
+            # 显示调用链
+            if endpoint.steps:
+                console.print()
+                tree = Tree("[bold]📞 调用链[/bold]")
+                
+                for i, step in enumerate(endpoint.steps):
+                    func_info = self.flow_analyzer.functions.get(step)
+                    if func_info:
+                        desc = func_info.description or ""
+                        file_info = f"[dim]{func_info.file_path}[/dim]"
+                        node_text = f"[cyan]{step}[/cyan]"
+                        if desc:
+                            node_text += f" - [green]{desc}[/green]"
+                        node_text += f" {file_info}"
+                        tree.add(node_text)
+                    else:
+                        tree.add(f"[cyan]{step}[/cyan]")
+                
+                console.print(tree)
+        
+        # 调用链索引范围: len(endpoints)+1 .. len(endpoints)+len(chains)
+        elif index <= len(endpoints) + len(chains):
+            chain_idx = index - len(endpoints) - 1
+            chain = chains[chain_idx]
             
-            console.print(tree)
+            console.print()
+            console.print(Panel(
+                f"[bold]{chain.entry_point}[/bold]\n\n"
+                f"  文件: [dim]{chain.file_path}[/dim]\n"
+                f"  描述: [green]{chain.description or '-'}[/green]\n"
+                f"  深度: [yellow]{chain.depth}[/yellow]\n"
+                f"  步骤数: [cyan]{len(chain.steps)}[/cyan]",
+                title="[bold]调用链详情[/bold]",
+                border_style="green"
+            ))
+            
+            # 显示调用链步骤
+            if chain.steps:
+                console.print()
+                tree = Tree("[bold]📞 调用链[/bold]")
+                
+                for i, step in enumerate(chain.steps):
+                    func_info = self.flow_analyzer.functions.get(step)
+                    if func_info:
+                        desc = func_info.description or ""
+                        file_info = f"[dim]{func_info.file_path}[/dim]"
+                        node_text = f"[cyan]{step}[/cyan]"
+                        if desc:
+                            node_text += f" - [green]{desc}[/green]"
+                        node_text += f" {file_info}"
+                        tree.add(node_text)
+                    else:
+                        tree.add(f"[cyan]{step}[/cyan]")
+                
+                console.print(tree)
+        else:
+            console.print(f"[red]无效的索引: {index}[/red]")
     
     def generate_flowchart(self, index: int = None, output: str = None) -> None:
         """生成Mermaid流程图"""
@@ -871,25 +925,47 @@ class KnowledgeGraphCLI:
             console.print("[red]请先分析项目流程[/red]")
             return
         
-        # 生成Mermaid代码
-        mermaid = self.flow_analyzer.generate_mermaid_flowchart(index - 1 if index else None)
+        endpoints = self.flow_analyzer.api_endpoints
+        chains = self.flow_analyzer.call_chains
+        
+        # 确定生成哪种类型的流程图
+        is_call_chain = False
+        chain_idx = None
+        
+        if index:
+            if 1 <= index <= len(endpoints):
+                # API端点流程图
+                mermaid = self.flow_analyzer.generate_mermaid_flowchart(index - 1)
+            elif len(endpoints) < index <= len(endpoints) + len(chains):
+                # 调用链流程图
+                is_call_chain = True
+                chain_idx = index - len(endpoints) - 1
+                mermaid = self.flow_analyzer.generate_call_chain_flowchart(chain_idx)
+            else:
+                console.print(f"[red]无效的索引: {index}[/red]")
+                return
+        else:
+            # 生成所有流程图
+            mermaid = self.flow_analyzer.generate_mermaid_flowchart()
         
         # 确定输出文件
         if not output:
             if index:
-                endpoints = self.flow_analyzer.api_endpoints
-                if 1 <= index <= len(endpoints):
+                if is_call_chain and chain_idx is not None:
+                    chain = chains[chain_idx]
+                    safe_name = chain.entry_point.replace('.', '_').replace('/', '_')
+                    output = f"flow_call_{safe_name}.md"
+                else:
                     endpoint = endpoints[index - 1]
                     safe_name = f"{endpoint.method}_{endpoint.path}".replace('/', '_').replace('{', '').replace('}', '')
                     output = f"flow_{safe_name}.md"
-                else:
-                    output = "flow.md"
             else:
                 output = "flow.md"
         
         # 保存文件
+        title = "调用链流程图" if is_call_chain else "API流程图"
         with open(output, 'w', encoding='utf-8') as f:
-            f.write("# API流程图\n\n")
+            f.write(f"# {title}\n\n")
             f.write("```mermaid\n")
             f.write(mermaid)
             f.write("\n```\n\n")
@@ -1116,6 +1192,157 @@ def _analyze_via_daemon(path, incremental, recursive, llm_opts=None):
         ))
 
     return result
+
+
+@cli.command('batch-analyze')
+@click.argument('paths', nargs=-1, required=True)
+@click.option('--parent', '-p', is_flag=True, help='将第一个参数作为父目录，分析其所有子目录')
+@click.option('--no-recursive', is_flag=True, help='不递归扫描子目录')
+@click.option('--llm', is_flag=True, help='使用 LLM 提取知识（需要 OPENAI_API_KEY）')
+@click.option('--model', default=None, help='LLM 模型名称')
+@click.option('--api-key', default=None, help='API Key')
+@click.option('--base-url', default=None, help='API Base URL')
+@click.pass_context
+def batch_analyze(ctx, paths, parent, no_recursive, llm, model, api_key, base_url):
+    """批量分析多个目录
+    
+    示例:
+      cli.py batch-analyze dir1 dir2 dir3
+      cli.py batch-analyze ./projects --parent
+    """
+    from pathlib import Path
+    
+    # 确定要分析的目录列表
+    if parent:
+        parent_dir = Path(paths[0])
+        if not parent_dir.exists():
+            console.print(f"[red]✗ 父目录不存在: {parent_dir}[/red]")
+            return
+        if not parent_dir.is_dir():
+            console.print(f"[red]✗ 不是目录: {parent_dir}[/red]")
+            return
+        
+        # 获取所有子目录
+        dirs = sorted([d for d in parent_dir.iterdir() if d.is_dir() and not d.name.startswith('.')])
+        if not dirs:
+            console.print(f"[yellow]⚠ 父目录下没有找到子目录: {parent_dir}[/yellow]")
+            return
+        
+        console.print(f"[bold]📂 批量分析: [cyan]{parent_dir}[/cyan] 下的 {len(dirs)} 个子目录[/bold]\n")
+    else:
+        dirs = [Path(p) for p in paths]
+        for d in dirs:
+            if not d.exists():
+                console.print(f"[red]✗ 路径不存在: {d}[/red]")
+                return
+    
+    # 分析每个目录
+    results = []
+    failed = []
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console
+    ) as progress:
+        main_task = progress.add_task("[bold]总进度...", total=len(dirs))
+        
+        for i, dir_path in enumerate(dirs):
+            if not dir_path.is_dir():
+                console.print(f"[yellow]⚠ 跳过非目录: {dir_path}[/yellow]")
+                progress.advance(main_task)
+                continue
+            
+            project_name = dir_path.name
+            progress.update(main_task, description=f"[bold]分析 [{i+1}/{len(dirs)}]: [cyan]{project_name}[/cyan][/bold]")
+            
+            try:
+                kg = ctx.obj['kg']
+                
+                # 设置 LLM 提取器
+                if llm:
+                    from src.llm_extractor import LLMExtractor
+                    kg._extractor = LLMExtractor(api_key=api_key, model=model, base_url=base_url)
+                
+                # 执行分析
+                result = kg.analyze(str(dir_path), recursive=not no_recursive)
+                
+                if result:
+                    results.append({
+                        'name': project_name,
+                        'path': str(dir_path),
+                        'entities': result.get('entities', 0),
+                        'relations': result.get('relations', 0),
+                    })
+                else:
+                    failed.append({'name': project_name, 'path': str(dir_path), 'error': '分析失败'})
+            
+            except Exception as e:
+                failed.append({'name': project_name, 'path': str(dir_path), 'error': str(e)})
+                console.print(f"[red]✗ {project_name}: {e}[/red]")
+            
+            progress.advance(main_task)
+    
+    # 显示汇总结果
+    console.print()
+    console.print(Panel(
+        f"[bold green]✓ 批量分析完成![/bold green]\n\n"
+        f"  成功: [cyan]{len(results)}[/cyan] 个\n"
+        f"  失败: [red]{len(failed)}[/red] 个",
+        title="[bold]批量分析结果[/bold]", border_style="green",
+    ))
+    
+    # 显示详细结果表格
+    if results:
+        console.print()
+        table = Table(
+            title="[bold]📊 分析结果[/bold]",
+            box=box.ROUNDED, show_header=True, header_style="bold magenta"
+        )
+        table.add_column("#", style="dim", width=4)
+        table.add_column("项目", style="cyan")
+        table.add_column("实体", style="green", justify="right")
+        table.add_column("关系", style="green", justify="right")
+        table.add_column("路径", style="dim")
+        
+        total_entities = 0
+        total_relations = 0
+        
+        for i, r in enumerate(results, 1):
+            table.add_row(
+                str(i), r['name'],
+                str(r['entities']), str(r['relations']),
+                r['path']
+            )
+            total_entities += r['entities']
+            total_relations += r['relations']
+        
+        table.add_section()
+        table.add_row(
+            "", "[bold]总计[/bold]",
+            f"[bold]{total_entities}[/bold]",
+            f"[bold]{total_relations}[/bold]",
+            ""
+        )
+        
+        console.print(table)
+    
+    # 显示失败列表
+    if failed:
+        console.print()
+        console.print("[bold red]❌ 失败列表:[/bold red]")
+        for f in failed:
+            console.print(f"  - {f['name']}: {f['error']}")
+    
+    # 提示下一步操作
+    if results:
+        console.print("\n[bold]💡 下一步操作:[/bold]")
+        console.print("  [cyan]python cli.py list[/cyan]            查看所有项目")
+        console.print("  [cyan]python cli.py -p <项目名> summary[/cyan]  查看项目摘要")
+        console.print("  [cyan]python cli.py diff <旧> <新>[/cyan]  比较两个项目")
 
 
 @cli.command()
@@ -1377,6 +1604,36 @@ def interactive(ctx):
     if not kg.load_graph_by_name(project):
         return
     
+    # 设置 readline 历史
+    history_file = Path.home() / '.repomind' / 'history'
+    history_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        readline.read_history_file(str(history_file))
+    except FileNotFoundError:
+        pass
+    atexit.register(readline.write_history_file, str(history_file))
+    readline.set_history_length(1000)
+    
+    # 设置 tab 补全
+    def completer(text, state):
+        commands = ['help', 'quit', 'exit', 'summary', 'search', 'relations', 
+                    'deps', 'graph', 'flow', 'export', 'history', 'clear', 'modules',
+                    'tech', 'databases', 'tools', 'documents']
+        
+        # 获取所有实体名称
+        entities = [e.name for e in kg.current_graph.entities] if kg.current_graph else []
+        all_options = commands + entities
+        
+        # 过滤匹配项
+        matches = [opt for opt in all_options if opt.lower().startswith(text.lower())]
+        
+        if state < len(matches):
+            return matches[state]
+        return None
+    
+    readline.set_completer(completer)
+    readline.parse_and_bind('tab: complete')
+    
     console.print()
     console.print(Panel(
         "[bold]🔮 交互式查询模式[/bold]\n\n"
@@ -1384,12 +1641,21 @@ def interactive(ctx):
         "  [cyan]<名称>是什么[/cyan]                查看实体详情\n"
         "  [cyan]<名称>依赖什么[/cyan]              查看依赖关系\n"
         "  [cyan]search <关键词>[/cyan]              搜索实体\n"
+        "  [cyan]relations <实体名>[/cyan]           查看实体关系\n"
+        "  [cyan]deps <实体名>[/cyan]                查看依赖树\n"
+        "  [cyan]graph <实体名>[/cyan]               生成实体关系图\n"
+        "  [cyan]flow[/cyan]                         查看API流程\n"
+        "  [cyan]export[/cyan]                       导出当前图谱\n"
+        "  [cyan]history[/cyan]                      查看查询历史\n"
+        "  [cyan]clear[/cyan]                        清屏\n"
         "  [cyan]summary[/cyan]                      查看摘要\n"
         "  [cyan]help[/cyan]                         显示帮助\n"
         "  [cyan]quit[/cyan]                         退出",
         title="[bold]使用说明[/bold]",
         border_style="cyan"
     ))
+    
+    query_history = []
     
     while True:
         try:
@@ -1398,33 +1664,87 @@ def interactive(ctx):
             if not question.strip():
                 continue
             
-            if question.lower() in ['quit', 'exit', 'q']:
+            query_history.append(question.strip())
+            
+            cmd = question.strip().lower()
+            
+            if cmd in ['quit', 'exit', 'q']:
                 console.print("[yellow]👋 再见![/yellow]")
                 break
             
-            if question.lower() == 'summary':
+            if cmd == 'summary':
                 kg.show_summary()
                 continue
             
-            if question.lower() == 'help':
-                console.print(Panel(
-                    "可用查询:\n"
-                    "- [cyan]模块[/cyan]: 查看所有模块\n"
-                    "- [cyan]技术栈[/cyan]: 查看技术栈\n"
-                    "- [cyan]数据库[/cyan]: 查看数据库\n"
-                    "- [cyan]工具[/cyan]: 查看工具\n"
-                    "- [cyan]<实体名>是什么[/cyan]: 查看实体详情\n"
-                    "- [cyan]<实体名>依赖什么[/cyan]: 查看依赖关系\n"
-                    "- [cyan]search <关键词>[/cyan]: 搜索实体",
-                    border_style="yellow"
-                ))
+            if cmd == 'help':
+                _show_interactive_help()
                 continue
             
-            if question.lower().startswith('search '):
+            if cmd == 'clear':
+                os.system('clear' if os.name != 'nt' else 'cls')
+                continue
+            
+            if cmd == 'history':
+                _show_query_history(query_history)
+                continue
+            
+            if cmd.startswith('search '):
                 keyword = question[7:].strip()
                 kg.search(keyword)
                 continue
             
+            if cmd.startswith('relations '):
+                entity_name = question[10:].strip()
+                _show_relations(kg, entity_name)
+                continue
+            
+            if cmd.startswith('deps '):
+                entity_name = question[5:].strip()
+                _show_dependency_tree(kg, entity_name)
+                continue
+            
+            if cmd.startswith('graph '):
+                entity_name = question[6:].strip()
+                _generate_entity_graph(kg, entity_name)
+                continue
+            
+            if cmd == 'flow':
+                _show_flow_summary(kg)
+                continue
+            
+            if cmd.startswith('flow '):
+                try:
+                    index = int(question[5:].strip())
+                    _show_flow_detail(kg, index)
+                except ValueError:
+                    console.print("[red]请提供有效的索引号[/red]")
+                continue
+            
+            if cmd == 'export':
+                _export_interactive(kg)
+                continue
+            
+            if cmd in ['modules', '模块']:
+                _show_category(kg, 'Module', '📦')
+                continue
+            
+            if cmd in ['tech', '技术栈']:
+                _show_category(kg, 'Framework', '🔧')
+                continue
+            
+            if cmd in ['databases', '数据库']:
+                _show_category(kg, 'Database', '🗄️')
+                continue
+            
+            if cmd in ['tools', '工具']:
+                _show_category(kg, 'Tool', '🔨')
+                continue
+            
+            if cmd in ['documents', '文档']:
+                _show_category(kg, 'Document', '📄')
+                continue
+            
+            # 默认使用 QA 引擎
             answer = kg.query(question)
             console.print()
             console.print(Panel(
@@ -1438,6 +1758,280 @@ def interactive(ctx):
             break
         except Exception as e:
             console.print(f"[red]✗ 错误: {e}[/red]")
+
+
+def _show_interactive_help():
+    """显示交互式模式帮助"""
+    help_text = """[bold]可用命令:[/bold]
+
+  [cyan]查询命令:[/cyan]
+    <名称>是什么          查看实体详情
+    <名称>依赖什么        查看依赖关系
+    search <关键词>       搜索实体
+    modules / 模块        查看所有模块
+    tech / 技术栈         查看技术栈
+    databases / 数据库    查看数据库
+    tools / 工具          查看工具
+    documents / 文档      查看文档
+
+  [cyan]关系分析:[/cyan]
+    relations <实体名>    查看实体的所有关系
+    deps <实体名>         查看依赖树
+    graph <实体名>        生成实体关系图
+
+  [cyan]流程分析:[/cyan]
+    flow                  查看API流程摘要
+    flow <序号>           查看流程详情
+
+  [cyan]其他命令:[/cyan]
+    summary               查看项目摘要
+    export                导出当前图谱
+    history               查看查询历史
+    clear                 清屏
+    help                  显示此帮助
+    quit / exit / q       退出"""
+    
+    console.print()
+    console.print(Panel(help_text, title="[bold]帮助[/bold]", border_style="yellow"))
+
+
+def _show_query_history(history: list):
+    """显示查询历史"""
+    if not history:
+        console.print("[yellow]暂无查询历史[/yellow]")
+        return
+    
+    console.print()
+    table = Table(title="[bold]📜 查询历史[/bold]", box=box.ROUNDED)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("查询", style="cyan")
+    
+    for i, q in enumerate(history[-20:], 1):
+        table.add_row(str(i), q)
+    
+    console.print(table)
+
+
+def _show_relations(kg, entity_name: str):
+    """显示实体的所有关系"""
+    if not kg.current_graph:
+        console.print("[red]请先加载项目[/red]")
+        return
+    
+    from src.query_engine import QueryEngine
+    qe = QueryEngine(kg.current_graph)
+    
+    entity = qe.find_entity(entity_name)
+    if not entity:
+        # 尝试模糊匹配
+        entities = qe.search_entities(entity_name)
+        if entities:
+            entity = entities[0]
+            console.print(f"[yellow]未找到精确匹配，显示最相关的结果: {entity.name}[/yellow]")
+        else:
+            console.print(f"[red]找不到实体: {entity_name}[/red]")
+            return
+    
+    relations = qe.find_relations(entity.name)
+    
+    if not relations:
+        console.print(f"[yellow]{entity.name} 没有发现关系[/yellow]")
+        return
+    
+    console.print()
+    
+    # 作为源的关系
+    outgoing = [r for r in relations if r.source.lower() == entity.name.lower()]
+    # 作为目标的关系
+    incoming = [r for r in relations if r.target.lower() == entity.name.lower()]
+    
+    if outgoing:
+        table = Table(title=f"[bold]➡️ {entity.name} 的出向关系[/bold]", box=box.ROUNDED)
+        table.add_column("关系类型", style="magenta")
+        table.add_column("目标", style="cyan")
+        table.add_column("描述", style="dim")
+        
+        for r in outgoing:
+            table.add_row(r.type.value, r.target, r.description or "-")
+        
+        console.print(table)
+    
+    if incoming:
+        table = Table(title=f"[bold]⬅️ {entity.name} 的入向关系[/bold]", box=box.ROUNDED)
+        table.add_column("来源", style="cyan")
+        table.add_column("关系类型", style="magenta")
+        table.add_column("描述", style="dim")
+        
+        for r in incoming:
+            table.add_row(r.source, r.type.value, r.description or "-")
+        
+        console.print(table)
+
+
+def _show_dependency_tree(kg, entity_name: str):
+    """显示依赖树"""
+    if not kg.current_graph:
+        console.print("[red]请先加载项目[/red]")
+        return
+    
+    from src.query_engine import QueryEngine
+    qe = QueryEngine(kg.current_graph)
+    
+    entity = qe.find_entity(entity_name)
+    if not entity:
+        console.print(f"[red]找不到实体: {entity_name}[/red]")
+        return
+    
+    deps = qe.find_dependencies(entity.name)
+    
+    if not deps:
+        console.print(f"[yellow]{entity.name} 没有发现依赖[/yellow]")
+        return
+    
+    console.print()
+    tree = Tree(f"[bold]{entity.name}[/bold] 的依赖树")
+    
+    for dep in deps:
+        icon = ENTITY_ICONS.get(dep.type.value, "•")
+        node = tree.add(f"{icon} [cyan]{dep.name}[/cyan]")
+        
+        # 递归查找依赖的依赖
+        sub_deps = qe.find_dependencies(dep.name)
+        for sub_dep in sub_deps[:5]:
+            sub_icon = ENTITY_ICONS.get(sub_dep.type.value, "•")
+            node.add(f"{sub_icon} [dim]{sub_dep.name}[/dim]")
+        
+        if len(sub_deps) > 5:
+            node.add(f"[dim]... 还有 {len(sub_deps) - 5} 个[/dim]")
+    
+    console.print(tree)
+
+
+def _generate_entity_graph(kg, entity_name: str):
+    """生成实体关系图"""
+    if not kg.current_graph:
+        console.print("[red]请先加载项目[/red]")
+        return
+    
+    from src.query_engine import QueryEngine
+    qe = QueryEngine(kg.current_graph)
+    
+    entity = qe.find_entity(entity_name)
+    if not entity:
+        console.print(f"[red]找不到实体: {entity_name}[/red]")
+        return
+    
+    related = qe.find_related(entity.name)
+    relations = qe.find_relations(entity.name)
+    
+    if not related and not relations:
+        console.print(f"[yellow]{entity.name} 没有发现关联实体[/yellow]")
+        return
+    
+    # 生成 Mermaid 图
+    mermaid = "graph LR\n"
+    mermaid += f"    {entity.name.replace('.', '_')}[\"{entity.name}\"]:::main\n"
+    
+    for rel in relations[:10]:
+        target = rel.target if rel.source.lower() == entity.name.lower() else rel.source
+        target_id = target.replace('.', '_')
+        mermaid += f"    {target_id}[\"{target}\"]:::related\n"
+        mermaid += f"    {entity.name.replace('.', '_')} -->|{rel.type.value}| {target_id}\n"
+    
+    mermaid += "    classDef main fill:#4CAF50,stroke:#388E3C,color:white\n"
+    mermaid += "    classDef related fill:#2196F3,stroke:#1565C0,color:white\n"
+    
+    # 保存文件
+    safe_name = entity.name.replace('.', '_').replace('/', '_')
+    output = f"graph_{safe_name}.md"
+    
+    with open(output, 'w', encoding='utf-8') as f:
+        f.write(f"# {entity.name} 关系图\n\n")
+        f.write("```mermaid\n")
+        f.write(mermaid)
+        f.write("\n```\n")
+    
+    console.print(f"[green]✓ 关系图已生成: {output}[/green]")
+
+
+def _show_flow_summary(kg):
+    """显示流程摘要"""
+    if not kg.flow_analyzer:
+        console.print("[yellow]请先运行 flow 命令分析项目流程[/yellow]")
+        return
+    
+    kg.show_flow_summary()
+
+
+def _show_flow_detail(kg, index: int):
+    """显示流程详情"""
+    if not kg.flow_analyzer:
+        console.print("[yellow]请先运行 flow 命令分析项目流程[/yellow]")
+        return
+    
+    kg.show_flow_detail(index)
+
+
+def _export_interactive(kg):
+    """交互式导出"""
+    if not kg.current_graph:
+        console.print("[red]请先加载项目[/red]")
+        return
+    
+    console.print()
+    console.print("[bold]选择导出格式:[/bold]")
+    console.print("  1. JSON")
+    console.print("  2. CSV")
+    console.print("  3. Markdown")
+    console.print("  4. HTML")
+    
+    choice = console.input("\n[bold cyan]请选择 (1-4): [/bold cyan]")
+    
+    format_map = {'1': 'json', '2': 'csv', '3': 'markdown', '4': 'html'}
+    fmt = format_map.get(choice, 'json')
+    
+    output = kg.export(fmt)
+    if output:
+        console.print(f"[green]✓ 已导出到: {output}[/green]")
+
+
+def _show_category(kg, entity_type: str, icon: str):
+    """显示分类实体"""
+    if not kg.current_graph:
+        console.print("[red]请先加载项目[/red]")
+        return
+    
+    from src.models import EntityType
+    from src.query_engine import QueryEngine
+    
+    qe = QueryEngine(kg.current_graph)
+    
+    try:
+        etype = EntityType(entity_type)
+    except ValueError:
+        console.print(f"[red]未知的实体类型: {entity_type}[/red]")
+        return
+    
+    entities = qe.find_entities_by_type(etype)
+    
+    if not entities:
+        console.print(f"[yellow]项目中没有发现{entity_type}类型的实体[/yellow]")
+        return
+    
+    console.print()
+    table = Table(title=f"[bold]{icon} {entity_type}列表[/bold]", box=box.ROUNDED)
+    table.add_column("名称", style="cyan")
+    table.add_column("描述", style="dim")
+    table.add_column("来源", style="green")
+    
+    for entity in entities[:20]:
+        desc = (entity.description[:40] + "...") if entity.description and len(entity.description) > 40 else (entity.description or "-")
+        table.add_row(entity.name, desc, entity.source_file or "-")
+    
+    console.print(table)
+    
+    if len(entities) > 20:
+        console.print(f"[dim]... 还有 {len(entities) - 20} 个结果[/dim]")
 
 
 @cli.command()
@@ -1527,6 +2121,366 @@ def flowcharts(ctx, output_dir):
             return
     
     kg.generate_all_flowcharts(output_dir)
+
+
+@cli.command()
+@click.argument('old_project')
+@click.argument('new_project')
+@click.option('--detail', '-d', is_flag=True, help='显示详细差异')
+@click.option('--json', 'output_json', is_flag=True, help='输出JSON格式')
+@click.pass_context
+def diff(ctx, old_project, new_project, detail, output_json):
+    """比较两个知识图谱的差异
+    
+    示例: cli.py diff project-v1 project-v2
+    """
+    kg = ctx.obj['kg']
+    
+    from src.graph_diff import diff_graphs, format_diff_summary, format_diff_detail
+    
+    # 加载旧图谱
+    if not kg.load_graph(old_project):
+        console.print(f"[red]找不到项目: {old_project}[/red]")
+        return
+    old_graph = kg.current_graph
+    
+    # 加载新图谱
+    if not kg.load_graph(new_project):
+        console.print(f"[red]找不到项目: {new_project}[/red]")
+        return
+    new_graph = kg.current_graph
+    
+    # 计算差异
+    graph_diff = diff_graphs(old_graph, new_graph)
+    
+    # 输出结果
+    if output_json:
+        import json
+        console.print_json(json.dumps(graph_diff.model_dump(), ensure_ascii=False, indent=2))
+    elif detail:
+        console.print()
+        console.print(format_diff_detail(graph_diff))
+    else:
+        console.print()
+        console.print(format_diff_summary(graph_diff))
+        
+        if graph_diff.entity_changes or graph_diff.relation_changes:
+            console.print("\n[dim]使用 -d 选项查看详细差异[/dim]")
+
+
+@cli.command()
+@click.argument('old_project')
+@click.argument('new_project')
+@click.option('--output', '-o', help='输出文件路径')
+@click.pass_context
+def diff_html(ctx, old_project, new_project, output):
+    """生成图谱对比的HTML报告"""
+    kg = ctx.obj['kg']
+    
+    from src.graph_diff import diff_graphs
+    
+    # 加载图谱
+    if not kg.load_graph(old_project):
+        console.print(f"[red]找不到项目: {old_project}[/red]")
+        return
+    old_graph = kg.current_graph
+    
+    if not kg.load_graph(new_project):
+        console.print(f"[red]找不到项目: {new_project}[/red]")
+        return
+    new_graph = kg.current_graph
+    
+    # 计算差异
+    graph_diff = diff_graphs(old_graph, new_graph)
+    
+    # 生成HTML报告
+    html = _generate_diff_html(graph_diff, old_project, new_project)
+    
+    # 保存文件
+    if not output:
+        output = f"diff_{old_project}_vs_{new_project}.html"
+    
+    with open(output, 'w', encoding='utf-8') as f:
+        f.write(html)
+    
+    console.print(f"[green]✓ 对比报告已生成: {output}[/green]")
+
+
+def _generate_diff_html(diff, old_name: str, new_name: str) -> str:
+    """生成对比报告的HTML"""
+    from src.renderers import type_colors
+    
+    # 统计数据
+    stats = {
+        'entities_added': diff.entities_added,
+        'entities_deleted': diff.entities_deleted,
+        'entities_modified': diff.entities_modified,
+        'relations_added': diff.relations_added,
+        'relations_deleted': diff.relations_deleted,
+    }
+    
+    # 实体变更
+    entity_added = [c for c in diff.entity_changes if c.change_type == 'added']
+    entity_deleted = [c for c in diff.entity_changes if c.change_type == 'deleted']
+    entity_modified = [c for c in diff.entity_changes if c.change_type == 'modified']
+    
+    # 关系变更
+    relation_added = [c for c in diff.relation_changes if c.change_type == 'added']
+    relation_deleted = [c for c in diff.relation_changes if c.change_type == 'deleted']
+    
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图谱对比: {old_name} vs {new_name}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }}
+        .container {{ max-width: 1200px; margin: 0 auto; }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 30px; border-radius: 10px; margin-bottom: 20px;
+        }}
+        .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+        .header p {{ opacity: 0.9; }}
+        .stats {{
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px; margin-bottom: 20px;
+        }}
+        .stat-card {{
+            background: white; padding: 20px; border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;
+        }}
+        .stat-card .number {{ font-size: 36px; font-weight: bold; }}
+        .stat-card .label {{ color: #666; margin-top: 5px; }}
+        .stat-added .number {{ color: #27ae60; }}
+        .stat-deleted .number {{ color: #e74c3c; }}
+        .stat-modified .number {{ color: #f39c12; }}
+        .section {{
+            background: white; padding: 20px; border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }}
+        .section h2 {{
+            color: #333; margin-bottom: 15px;
+            padding-bottom: 10px; border-bottom: 2px solid #667eea;
+        }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
+        th {{ background: #f8f9fa; font-weight: 600; color: #333; }}
+        tr:hover {{ background: #f5f5f5; }}
+        .badge {{
+            display: inline-block; padding: 4px 8px; border-radius: 4px;
+            font-size: 12px; font-weight: 500;
+        }}
+        .badge-added {{ background: #d4edda; color: #155724; }}
+        .badge-deleted {{ background: #f8d7da; color: #721c24; }}
+        .badge-modified {{ background: #fff3cd; color: #856404; }}
+        .empty {{ color: #888; font-style: italic; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 图谱对比报告</h1>
+            <p>对比: {old_name} → {new_name}</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card stat-added">
+                <div class="number">+{diff.entities_added + diff.relations_added}</div>
+                <div class="label">新增</div>
+            </div>
+            <div class="stat-card stat-deleted">
+                <div class="number">-{diff.entities_deleted + diff.relations_deleted}</div>
+                <div class="label">删除</div>
+            </div>
+            <div class="stat-card stat-modified">
+                <div class="number">~{diff.entities_modified}</div>
+                <div class="label">修改</div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number">{diff.old_entity_count}</div>
+                <div class="label">旧图谱实体</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{diff.new_entity_count}</div>
+                <div class="label">新图谱实体</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{diff.old_relation_count}</div>
+                <div class="label">旧图谱关系</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{diff.new_relation_count}</div>
+                <div class="label">新图谱关系</div>
+            </div>
+        </div>
+"""
+    
+    # 实体变更部分
+    if entity_added or entity_deleted or entity_modified:
+        html += """
+        <div class="section">
+            <h2>📦 实体变更</h2>
+            <table>
+                <tr><th>名称</th><th>类型</th><th>变更</th><th>描述</th></tr>
+"""
+        for c in entity_added:
+            html += f"""
+                <tr>
+                    <td>{c.name}</td>
+                    <td>{c.new_type}</td>
+                    <td><span class="badge badge-added">新增</span></td>
+                    <td>{c.new_description or '-'}</td>
+                </tr>
+"""
+        for c in entity_deleted:
+            html += f"""
+                <tr>
+                    <td>{c.name}</td>
+                    <td>{c.old_type}</td>
+                    <td><span class="badge badge-deleted">删除</span></td>
+                    <td>{c.old_description or '-'}</td>
+                </tr>
+"""
+        for c in entity_modified:
+            changes = []
+            if c.old_type != c.new_type:
+                changes.append(f"类型: {c.old_type} → {c.new_type}")
+            if c.old_description != c.new_description:
+                changes.append(f"描述已修改")
+            html += f"""
+                <tr>
+                    <td>{c.name}</td>
+                    <td>{c.new_type}</td>
+                    <td><span class="badge badge-modified">修改</span></td>
+                    <td>{', '.join(changes) if changes else '-'}</td>
+                </tr>
+"""
+        html += """
+            </table>
+        </div>
+"""
+    
+    # 关系变更部分
+    if relation_added or relation_deleted:
+        html += """
+        <div class="section">
+            <h2>🔗 关系变更</h2>
+            <table>
+                <tr><th>源</th><th>关系</th><th>目标</th><th>变更</th></tr>
+"""
+        for c in relation_added:
+            html += f"""
+                <tr>
+                    <td>{c.source}</td>
+                    <td>{c.relation_type}</td>
+                    <td>{c.target}</td>
+                    <td><span class="badge badge-added">新增</span></td>
+                </tr>
+"""
+        for c in relation_deleted:
+            html += f"""
+                <tr>
+                    <td>{c.source}</td>
+                    <td>{c.relation_type}</td>
+                    <td>{c.target}</td>
+                    <td><span class="badge badge-deleted">删除</span></td>
+                </tr>
+"""
+        html += """
+            </table>
+        </div>
+"""
+    
+    # 无变更
+    if not diff.entity_changes and not diff.relation_changes:
+        html += """
+        <div class="section">
+            <p class="empty">✅ 没有发现差异</p>
+        </div>
+"""
+    
+    html += """
+    </div>
+</body>
+</html>"""
+    
+    return html
+
+
+@cli.command()
+@click.argument('projects', nargs=-1, required=True)
+@click.option('--output', '-o', help='输出项目名称')
+@click.option('--strategy', '-s', type=click.Choice(['skip', 'overwrite', 'keep_both']), 
+              default='skip', help='冲突处理策略')
+@click.option('--prefix', is_flag=True, help='在实体名前加项目前缀')
+@click.pass_context
+def merge(ctx, projects, output, strategy, prefix):
+    """合并多个知识图谱
+    
+    示例:
+      cli.py merge project1 project2 project3
+      cli.py merge project1 project2 -o merged-project
+      cli.py merge project1 project2 --strategy overwrite
+    """
+    kg = ctx.obj['kg']
+    
+    from src.graph_merge import merge_graphs, format_merge_summary, MergeOptions
+    
+    # 加载所有图谱
+    graphs = []
+    for project_name in projects:
+        if not kg.load_graph(project_name):
+            console.print(f"[red]找不到项目: {project_name}[/red]")
+            return
+        graphs.append((project_name, kg.current_graph))
+    
+    # 设置合并选项
+    options = MergeOptions(
+        conflict_strategy=strategy,
+        prefix_project=prefix,
+        deduplicate_relations=True
+    )
+    
+    # 执行合并
+    result = merge_graphs(graphs, options)
+    
+    # 显示合并摘要
+    console.print()
+    console.print(format_merge_summary(result))
+    
+    # 保存合并结果
+    if not output:
+        output = '-'.join(projects)
+    
+    # 保存图谱
+    graph_path = kg.builder.save_graph(result.merged_graph, output)
+    
+    # 生成可视化
+    from src.renderers import render_visjs_html
+    html_content = render_visjs_html(result.merged_graph, output)
+    html_path = kg.output_dir / f"{output}.graph.html"
+    with open(html_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    
+    console.print()
+    console.print(Panel(
+        f"[bold green]✓ 合并完成![/bold green]\n\n"
+        f"  📊 实体: [cyan]{len(result.merged_graph.entities)}[/cyan] 个\n"
+        f"  🔗 关系: [cyan]{len(result.merged_graph.relations)}[/cyan] 个\n"
+        f"  📁 图谱: [dim]{graph_path}[/dim]\n"
+        f"  🌐 可视化: [dim]{html_path}[/dim]",
+        title="[bold]合并结果[/bold]", border_style="green",
+    ))
+    
+    # 提示下一步操作
+    console.print("\n[bold]💡 下一步操作:[/bold]")
+    console.print(f"  [cyan]python cli.py -p {output} summary[/cyan]    查看合并后的摘要")
+    console.print(f"  [cyan]python cli.py -p {output} interactive[/cyan]  交互式查询")
 
 
 @cli.command()

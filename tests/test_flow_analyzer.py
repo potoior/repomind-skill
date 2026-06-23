@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.flow_analyzer import FlowAnalyzer, FunctionInfo, APIEndpoint, analyze_project_flows
+from src.flow_analyzer import FlowAnalyzer, FunctionInfo, APIEndpoint, CallChain, analyze_project_flows
 
 
 def test_extract_functions():
@@ -168,6 +168,89 @@ def test_api_endpoint_pydantic():
     d = ep.model_dump()
     assert d["method"] == "GET"
     assert d["steps"] == []
+
+
+def test_call_chain_pydantic():
+    chain = CallChain(entry_point="Service.handle", file_path="app.py", steps=["a", "b"], depth=2)
+    assert chain.entry_point == "Service.handle"
+    assert chain.steps == ["a", "b"]
+    assert chain.depth == 2
+    assert chain.description is None
+
+
+def test_analyze_function_chains():
+    analyzer = FlowAnalyzer()
+    analyzer.functions = {
+        "Service.process": FunctionInfo(
+            name="process", file_path="app.py", class_name="Service",
+            calls=["validate", "transform"], description="Process data"
+        ),
+        "Service.validate": FunctionInfo(
+            name="validate", file_path="app.py", class_name="Service",
+            calls=["check_format"], description="Validate input"
+        ),
+        "Service.transform": FunctionInfo(
+            name="transform", file_path="app.py", class_name="Service",
+            calls=[], description="Transform data"
+        ),
+        "Service.check_format": FunctionInfo(
+            name="check_format", file_path="app.py", class_name="Service",
+            calls=[], description="Check format"
+        ),
+    }
+    
+    analyzer._analyze_function_chains()
+    
+    assert len(analyzer.call_chains) >= 1
+    # Service.process should be an entry point (has downstream calls, not purely called)
+    chain = next((c for c in analyzer.call_chains if c.entry_point == "Service.process"), None)
+    assert chain is not None
+    assert chain.depth >= 2
+    assert "Service.process" in chain.steps
+
+
+def test_analyze_function_chains_filters_private():
+    analyzer = FlowAnalyzer()
+    analyzer.functions = {
+        "Service.public": FunctionInfo(
+            name="public", file_path="app.py", class_name="Service",
+            calls=["_private_helper"], description="Public method"
+        ),
+        "Service._private_helper": FunctionInfo(
+            name="_private_helper", file_path="app.py", class_name="Service",
+            calls=["do_work"], description="Private helper"
+        ),
+        "Service.do_work": FunctionInfo(
+            name="do_work", file_path="app.py", class_name="Service",
+            calls=[], description="Do work"
+        ),
+    }
+    
+    analyzer._analyze_function_chains()
+    
+    # _private_helper should be filtered as entry point (starts with _)
+    for chain in analyzer.call_chains:
+        assert not chain.entry_point.startswith('_')
+
+
+def test_generate_call_chain_flowchart():
+    analyzer = FlowAnalyzer()
+    chain = CallChain(
+        entry_point="Service.handle",
+        file_path="app.py",
+        steps=["Service.handle", "validate", "save"],
+        depth=3
+    )
+    analyzer.call_chains = [chain]
+    analyzer.functions = {
+        "Service.handle": FunctionInfo(name="handle", file_path="app.py", class_name="Service", calls=["validate", "save"]),
+        "validate": FunctionInfo(name="validate", file_path="app.py", calls=[]),
+        "save": FunctionInfo(name="save", file_path="app.py", calls=[]),
+    }
+    
+    mermaid = analyzer.generate_call_chain_flowchart(0)
+    assert "graph TD" in mermaid
+    assert "Service.handle" in mermaid
 
 
 if __name__ == "__main__":

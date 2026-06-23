@@ -1,9 +1,9 @@
-"""API流程分析器 - 分析接口调用流程并生成流程图"""
+"""流程分析器 - 分析API端点和函数调用链"""
 
 import re
 from typing import List, Dict, Set, Optional
 from pydantic import BaseModel, Field
-from .renderers import render_mermaid_flowchart
+from .renderers import render_mermaid_flowchart, render_call_chain_mermaid
 
 
 class FunctionInfo(BaseModel):
@@ -26,12 +26,22 @@ class APIEndpoint(BaseModel):
     steps: List[str] = Field(default_factory=list)
 
 
+class CallChain(BaseModel):
+    """函数调用链"""
+    entry_point: str
+    file_path: str
+    description: Optional[str] = None
+    steps: List[str] = Field(default_factory=list)
+    depth: int = 0
+
+
 class FlowAnalyzer:
     """流程分析器"""
     
     def __init__(self):
         self.functions: Dict[str, FunctionInfo] = {}
         self.api_endpoints: List[APIEndpoint] = []
+        self.call_chains: List[CallChain] = []
         self.call_graph: Dict[str, List[str]] = {}
     
     def analyze_code_files(self, code_files: List[tuple]) -> None:
@@ -42,6 +52,7 @@ class FlowAnalyzer:
         
         self._build_call_graph()
         self._analyze_api_flows()
+        self._analyze_function_chains()
     
     def _extract_functions(self, file_path: str, content: str) -> None:
         """提取函数信息"""
@@ -156,8 +167,8 @@ class FlowAnalyzer:
                     )
                     self.api_endpoints.append(endpoint)
         
-        # Express.js模式
-        express_pattern = r'app\.(get|post|put|delete)\s*\(\s*["\']([^"\']+)["\']'
+        # Express.js模式 (JavaScript文件中没有@前缀)
+        express_pattern = r'(?<!@)app\.(get|post|put|delete)\s*\(\s*["\']([^"\']+)["\']'
         for match in re.finditer(express_pattern, content):
             endpoint = APIEndpoint(
                 method=match.group(1).upper(),
@@ -185,6 +196,63 @@ class FlowAnalyzer:
             handler = endpoint.handler
             steps = self._trace_call_chain(handler, set())
             endpoint.steps = steps
+
+    def _analyze_function_chains(self) -> None:
+        """分析函数调用链 - 找到入口函数并追踪调用链"""
+        # 找到所有被调用过的函数名
+        called_by: Dict[str, Set[str]] = {}
+        for name, func in self.functions.items():
+            if '.' not in name:
+                continue
+            for call in func.calls:
+                if call in self.FILTERED_CALLS or call.startswith('_'):
+                    continue
+                called_by.setdefault(call, set()).add(name)
+
+        # 入口函数：公开方法、有调用链、不是纯被调用的叶子
+        entry_candidates = []
+        for name, func in self.functions.items():
+            if '.' not in name:
+                continue
+            if func.name.startswith('_'):
+                continue
+            # 有实际的下游调用（支持短名称解析）
+            def _resolve_call(call_name: str) -> bool:
+                if call_name in self.functions:
+                    return True
+                if func.class_name:
+                    full = f"{func.class_name}.{call_name}"
+                    if full in self.functions:
+                        return True
+                for key in self.functions:
+                    if key.endswith(f".{call_name}"):
+                        return True
+                return False
+            
+            real_calls = [c for c in func.calls
+                          if c not in self.FILTERED_CALLS and not c.startswith('_')
+                          and _resolve_call(c)]
+            if not real_calls:
+                continue
+            # 计算调用链深度
+            chain = self._trace_call_chain(name, set(), max_depth=5)
+            if len(chain) >= 2:
+                entry_candidates.append((name, func, chain))
+
+        # 按调用链长度排序，取前 20 个
+        entry_candidates.sort(key=lambda x: len(x[2]), reverse=True)
+        seen = set()
+        for name, func, chain in entry_candidates[:20]:
+            if name in seen:
+                continue
+            seen.add(name)
+            self.call_chains.append(CallChain(
+                entry_point=name,
+                file_path=func.file_path,
+                description=func.description,
+                steps=chain,
+                depth=len(chain),
+            ))
     
     # 需要过滤的内置/外部调用
     FILTERED_CALLS = {
@@ -201,9 +269,9 @@ class FlowAnalyzer:
         'isdigit', 'isalpha', 'isalnum',
     }
     
-    def _trace_call_chain(self, func_name: str, visited: Set[str], depth: int = 0) -> List[str]:
+    def _trace_call_chain(self, func_name: str, visited: Set[str], depth: int = 0, max_depth: int = 3) -> List[str]:
         """追踪调用链"""
-        if depth > 3 or func_name in visited:
+        if depth > max_depth or func_name in visited:
             return []
         
         visited.add(func_name)
@@ -244,18 +312,34 @@ class FlowAnalyzer:
         return steps
     
     def generate_mermaid_flowchart(self, endpoint_idx: int = None) -> str:
-        """生成Mermaid流程图"""
+        """生成Mermaid流程图（API端点）"""
         return render_mermaid_flowchart(self.api_endpoints, self.functions, endpoint_idx)
     
     def generate_all_flowcharts(self) -> Dict[str, str]:
-        """为每个API生成单独的流程图"""
+        """为每个API和调用链生成单独的流程图"""
         flowcharts = {}
         
         for i, endpoint in enumerate(self.api_endpoints):
             key = f"{endpoint.method} {endpoint.path}"
             flowcharts[key] = self.generate_mermaid_flowchart(i)
         
+        for i, chain in enumerate(self.call_chains):
+            key = f"call:{chain.entry_point}"
+            flowcharts[key] = render_call_chain_mermaid(chain, self.functions)
+        
         return flowcharts
+
+    def generate_call_chain_flowchart(self, chain_idx: int = None) -> str:
+        """生成函数调用链流程图"""
+        if chain_idx is not None and 0 <= chain_idx < len(self.call_chains):
+            return render_call_chain_mermaid(self.call_chains[chain_idx], self.functions)
+        # 生成所有调用链的合并图
+        mermaid = "graph TD\n"
+        mermaid += "    classDef entryNode fill:#4CAF50,stroke:#388E3C,color:white\n"
+        mermaid += "    classDef funcNode fill:#2196F3,stroke:#1565C0,color:white\n\n"
+        for chain in self.call_chains[:10]:
+            mermaid += render_call_chain_mermaid(chain, self.functions, standalone=False)
+        return mermaid
     
     def get_api_summary(self) -> List[Dict]:
         """获取API摘要"""

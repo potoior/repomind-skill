@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -97,6 +98,7 @@ def test_deduplicate_relations():
     assert len(result) == 1
 
 
+@patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=False)
 def test_no_api_key_raises():
     ext = LLMExtractor(api_key="")
     import pytest
