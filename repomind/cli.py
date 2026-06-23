@@ -2725,6 +2725,36 @@ def merge(ctx, projects, output, strategy, prefix):
 
 
 @cli.command()
+@click.option('--port', '-p', default=8000, help='Web服务端口')
+@click.option('--host', default='127.0.0.1', help='监听地址')
+@click.pass_context
+def web(ctx, port, host):
+    """启动Web UI（在线查询和图谱可视化）"""
+    from repomind.web_ui import create_app
+    
+    output_dir = str(ctx.obj['kg'].output_dir)
+    app = create_app(output_dir)
+    
+    console.print()
+    console.print(Panel(
+        f"[bold]🌐 RepoMind Web UI[/bold]\n\n"
+        f"  地址: [cyan]http://{host}:{port}[/cyan]\n"
+        f"  API文档: [cyan]http://{host}:{port}/docs[/cyan]\n\n"
+        f"  [dim]按 Ctrl+C 停止服务[/dim]",
+        title="[bold]启动Web服务[/bold]",
+        border_style="green",
+    ))
+    
+    try:
+        import uvicorn
+        uvicorn.run(app, host=host, port=port)
+    except ImportError:
+        console.print("[red]✗ 请安装 uvicorn: pip install uvicorn[/red]")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]👋 Web服务已停止[/yellow]")
+
+
+@cli.command()
 @click.option('--port', '-p', default=19832, help='监听端口')
 @click.option('--host', default='127.0.0.1', help='监听地址')
 @click.pass_context

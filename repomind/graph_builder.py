@@ -46,3 +46,14 @@ class GraphBuilder:
 
         print(f"可视化已保存到: {output_file}")
         return str(output_file)
+    
+    def save_graph(self, graph: KnowledgeGraph, repo_name: str) -> str:
+        """保存知识图谱"""
+        output_file = self.output_dir / f"{repo_name}.graph.json"
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(graph.model_dump(), f, ensure_ascii=False, indent=2)
+        
+        # 同时生成HTML可视化
+        self.generate_html_visualization(graph, repo_name)
+        
+        return str(output_file)
