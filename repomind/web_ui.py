@@ -1,10 +1,10 @@
 """Web UI - 基于FastAPI的在线查询和图谱可视化"""
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Path as PathParam
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Any
 import json
 from pathlib import Path
@@ -18,10 +18,97 @@ from .graph_diff import diff_graphs
 from .graph_merge import merge_graphs, MergeOptions
 
 
+# ============ API 元数据 ============
+
+tags_metadata = [
+    {
+        "name": "项目",
+        "description": "项目管理 - 列出、查看详情",
+    },
+    {
+        "name": "项目CRUD",
+        "description": "项目增删改 - 创建、重命名、删除项目",
+    },
+    {
+        "name": "实体",
+        "description": "实体查询 - 列出、查看详情",
+    },
+    {
+        "name": "实体CRUD",
+        "description": "实体增删改 - 创建、更新、删除实体",
+    },
+    {
+        "name": "关系",
+        "description": "关系查询 - 列出关系",
+    },
+    {
+        "name": "关系CRUD",
+        "description": "关系增删 - 创建、删除关系",
+    },
+    {
+        "name": "查询",
+        "description": "智能查询 - 自然语言问答、搜索",
+    },
+    {
+        "name": "图谱",
+        "description": "图谱数据 - 获取可视化数据、统计信息",
+    },
+    {
+        "name": "图谱操作",
+        "description": "图谱操作 - 比较、合并项目",
+    },
+    {
+        "name": "元数据",
+        "description": "元数据 - 获取有效的实体和关系类型",
+    },
+    {
+        "name": "Web UI",
+        "description": "Web界面 - 交互式图谱可视化",
+    },
+]
+
 app = FastAPI(
-    title="RepoMind Web UI",
-    description="智能项目知识图谱 - 在线查询和可视化",
-    version="2.0.0"
+    title="RepoMind API",
+    description="""
+## 智能项目知识图谱 API
+
+RepoMind 是一个智能项目知识图谱生成工具，可以扫描代码仓库、提取实体和关系、生成知识图谱。
+
+### 主要功能
+
+- 📊 **知识图谱** - 从代码和文档中提取实体、关系
+- 🔍 **智能搜索** - 支持正则、模糊匹配、类型过滤
+- 💬 **自然语言查询** - 用自然语言提问
+- 🔗 **图谱操作** - 比较、合并多个项目
+- 📈 **可视化** - 交互式图谱可视化
+
+### 快速开始
+
+1. 使用 `POST /api/projects` 创建项目
+2. 使用 `POST /api/entities` 添加实体
+3. 使用 `POST /api/relations` 添加关系
+4. 使用 `GET /api/graph/data` 获取可视化数据
+
+### 文档
+
+- **Swagger UI**: `/docs` - 交互式API文档
+- **ReDoc**: `/redoc` - 美观的API文档
+- **OpenAPI JSON**: `/openapi.json` - OpenAPI规范
+    """,
+    version="2.1.0",
+    contact={
+        "name": "RepoMind Team",
+        "url": "https://github.com/potoior/repomind-skill",
+        "email": "repomind@example.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # CORS
@@ -79,26 +166,162 @@ def _get_graph(name: str = None) -> KnowledgeGraph:
     raise HTTPException(status_code=404, detail="没有可用的知识图谱")
 
 
-# ============ API 端点 ============
+# ============ 请求/响应模型 ============
 
 class QueryRequest(BaseModel):
-    question: str
-    project: Optional[str] = None
+    """自然语言查询请求"""
+    question: str = Field(..., description="查询问题", example="有哪些模块？")
+    project: Optional[str] = Field(None, description="项目名称（可选）", example="my-project")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "question": "有哪些模块？",
+                "project": "my-project"
+            }
+        }
 
 
 class SearchRequest(BaseModel):
-    query: str
-    entity_types: Optional[List[str]] = None
-    use_regex: bool = False
-    fuzzy: bool = False
-    fuzzy_threshold: float = 0.6
-    max_results: int = 50
+    """搜索请求"""
+    query: str = Field(..., description="搜索关键词", example="UserService")
+    entity_types: Optional[List[str]] = Field(None, description="过滤实体类型", example=["Module", "Service"])
+    use_regex: bool = Field(False, description="使用正则表达式")
+    fuzzy: bool = Field(False, description="模糊匹配")
+    fuzzy_threshold: float = Field(0.6, description="模糊匹配阈值 (0-1)", ge=0, le=1)
+    max_results: int = Field(50, description="最大结果数", ge=1, le=500)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "UserService",
+                "entity_types": ["Module"],
+                "use_regex": False,
+                "fuzzy": False
+            }
+        }
 
 
 class MergeRequest(BaseModel):
-    projects: List[str]
-    output_name: str
-    strategy: str = "skip"
+    """合并请求"""
+    projects: List[str] = Field(..., description="要合并的项目列表", example=["project1", "project2"])
+    output_name: str = Field(..., description="输出项目名称", example="merged-project")
+    strategy: str = Field("skip", description="冲突策略: skip/overwrite/keep_both", example="skip")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "projects": ["project1", "project2"],
+                "output_name": "merged-project",
+                "strategy": "skip"
+            }
+        }
+
+
+class EntityCreate(BaseModel):
+    """创建实体请求"""
+    name: str = Field(..., description="实体名称", example="UserService")
+    type: str = Field(..., description="实体类型", example="Module")
+    description: Optional[str] = Field(None, description="实体描述", example="用户服务模块")
+    source_file: Optional[str] = Field(None, description="来源文件", example="src/user_service.py")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "UserService",
+                "type": "Module",
+                "description": "用户服务模块",
+                "source_file": "src/user_service.py"
+            }
+        }
+
+
+class EntityUpdate(BaseModel):
+    """更新实体请求"""
+    type: Optional[str] = Field(None, description="实体类型", example="Service")
+    description: Optional[str] = Field(None, description="实体描述", example="更新后的描述")
+    source_file: Optional[str] = Field(None, description="来源文件")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "description": "更新后的描述"
+            }
+        }
+
+
+class RelationCreate(BaseModel):
+    """创建关系请求"""
+    source: str = Field(..., description="源实体名称", example="UserService")
+    target: str = Field(..., description="目标实体名称", example="Database")
+    type: str = Field(..., description="关系类型", example="depends_on")
+    description: Optional[str] = Field(None, description="关系描述")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "source": "UserService",
+                "target": "Database",
+                "type": "depends_on"
+            }
+        }
+
+
+class ProjectCreate(BaseModel):
+    """创建项目请求"""
+    name: str = Field(..., description="项目名称", example="my-project")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "my-project"
+            }
+        }
+
+
+class ProjectRename(BaseModel):
+    """重命名项目请求"""
+    new_name: str = Field(..., description="新项目名称", example="renamed-project")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "new_name": "renamed-project"
+            }
+        }
+
+
+class ErrorResponse(BaseModel):
+    """错误响应"""
+    detail: str = Field(..., description="错误信息")
+
+
+class SuccessResponse(BaseModel):
+    """成功响应"""
+    message: str = Field(..., description="成功信息")
+
+
+class ProjectResponse(BaseModel):
+    """项目响应"""
+    name: str
+    entities: int
+    relations: int
+
+
+class EntityResponse(BaseModel):
+    """实体响应"""
+    name: str
+    type: str
+    description: Optional[str] = None
+    source_file: Optional[str] = None
+
+
+class RelationResponse(BaseModel):
+    """关系响应"""
+    source: str
+    target: str
+    type: str
+    description: Optional[str] = None
 
 
 @app.get("/api/projects", tags=["项目"])
@@ -331,30 +554,6 @@ async def merge_projects(request: MergeRequest):
 
 
 # ============ CRUD 操作 ============
-
-class EntityCreate(BaseModel):
-    name: str
-    type: str
-    description: Optional[str] = None
-    source_file: Optional[str] = None
-
-
-class EntityUpdate(BaseModel):
-    type: Optional[str] = None
-    description: Optional[str] = None
-    source_file: Optional[str] = None
-
-
-class RelationCreate(BaseModel):
-    source: str
-    target: str
-    type: str
-    description: Optional[str] = None
-
-
-class ProjectCreate(BaseModel):
-    name: str
-
 
 def _save_graph(name: str, graph: KnowledgeGraph):
     """保存图谱到文件"""
