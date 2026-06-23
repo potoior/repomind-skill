@@ -230,6 +230,351 @@ def test_web_ui():
         shutil.rmtree(temp_dir)
 
 
+# ============ CRUD 测试 ============
+
+def test_create_project():
+    """测试创建项目"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post("/api/projects", json={"name": "new-project"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "new-project"
+        assert data["entities"] == 0
+        
+        # 验证项目已创建
+        response = client.get("/api/projects")
+        projects = [p["name"] for p in response.json()["projects"]]
+        assert "new-project" in projects
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_project_duplicate():
+    """测试创建重复项目"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post("/api/projects", json={"name": "test-project"})
+        assert response.status_code == 409
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_project():
+    """测试删除项目"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete("/api/projects/test-project")
+        assert response.status_code == 200
+        
+        # 验证项目已删除
+        response = client.get("/api/projects")
+        projects = [p["name"] for p in response.json()["projects"]]
+        assert "test-project" not in projects
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_project_not_found():
+    """测试删除不存在的项目"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete("/api/projects/nonexistent")
+        assert response.status_code == 404
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_entity():
+    """测试创建实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/entities?project=test-project",
+            json={
+                "name": "NewService",
+                "type": "Module",
+                "description": "新服务模块"
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "NewService"
+        assert data["type"] == "Module"
+        
+        # 验证实体已创建
+        response = client.get("/api/entities?project=test-project")
+        entities = [e["name"] for e in response.json()["entities"]]
+        assert "NewService" in entities
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_entity_invalid_type():
+    """测试创建无效类型的实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/entities?project=test-project",
+            json={
+                "name": "Test",
+                "type": "InvalidType"
+            }
+        )
+        assert response.status_code == 400
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_entity_duplicate():
+    """测试创建重复实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/entities?project=test-project",
+            json={
+                "name": "UserService",
+                "type": "Module"
+            }
+        )
+        assert response.status_code == 409
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_update_entity():
+    """测试更新实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.put(
+            "/api/entity/UserService?project=test-project",
+            json={
+                "description": "更新后的描述"
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["description"] == "更新后的描述"
+        
+        # 验证更新
+        response = client.get("/api/entity/UserService?project=test-project")
+        assert response.json()["entity"]["description"] == "更新后的描述"
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_update_entity_not_found():
+    """测试更新不存在的实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.put(
+            "/api/entity/NonExistent?project=test-project",
+            json={"description": "test"}
+        )
+        assert response.status_code == 404
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_entity():
+    """测试删除实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete("/api/entity/FastAPI?project=test-project")
+        assert response.status_code == 200
+        
+        # 验证实体已删除
+        response = client.get("/api/entities?project=test-project")
+        entities = [e["name"] for e in response.json()["entities"]]
+        assert "FastAPI" not in entities
+        
+        # 验证相关关系也已删除
+        response = client.get("/api/relations?project=test-project")
+        for rel in response.json()["relations"]:
+            assert rel["source"] != "FastAPI"
+            assert rel["target"] != "FastAPI"
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_entity_not_found():
+    """测试删除不存在的实体"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete("/api/entity/NonExistent?project=test-project")
+        assert response.status_code == 404
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_relation():
+    """测试创建关系"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/relations?project=test-project",
+            json={
+                "source": "UserService",
+                "target": "FastAPI",
+                "type": "implements"
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["source"] == "UserService"
+        assert data["target"] == "FastAPI"
+        assert data["type"] == "implements"
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_relation_invalid_type():
+    """测试创建无效类型的关系"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/relations?project=test-project",
+            json={
+                "source": "UserService",
+                "target": "FastAPI",
+                "type": "InvalidType"
+            }
+        )
+        assert response.status_code == 400
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_create_relation_entity_not_found():
+    """测试创建关系时实体不存在"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.post(
+            "/api/relations?project=test-project",
+            json={
+                "source": "NonExistent",
+                "target": "FastAPI",
+                "type": "uses"
+            }
+        )
+        assert response.status_code == 404
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_relation():
+    """测试删除关系"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete(
+            "/api/relations?project=test-project&source=UserService&target=Database&type=depends_on"
+        )
+        assert response.status_code == 200
+        
+        # 验证关系已删除
+        response = client.get("/api/relations?project=test-project")
+        for rel in response.json()["relations"]:
+            if rel["source"] == "UserService" and rel["target"] == "Database":
+                assert rel["type"] != "depends_on"
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_delete_relation_not_found():
+    """测试删除不存在的关系"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.delete(
+            "/api/relations?project=test-project&source=A&target=B&type=uses"
+        )
+        assert response.status_code == 404
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
+def test_get_valid_types():
+    """测试获取有效类型"""
+    temp_dir = _setup_test_data()
+    try:
+        app = create_app(temp_dir)
+        client = TestClient(app)
+        
+        response = client.get("/api/types")
+        assert response.status_code == 200
+        data = response.json()
+        assert "entity_types" in data
+        assert "relation_types" in data
+        assert "Module" in data["entity_types"]
+        assert "uses" in data["relation_types"]
+    finally:
+        import shutil
+        shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     test_list_projects()
     test_get_project()
@@ -242,4 +587,21 @@ if __name__ == "__main__":
     test_get_graph_data()
     test_get_stats()
     test_web_ui()
+    test_create_project()
+    test_create_project_duplicate()
+    test_delete_project()
+    test_delete_project_not_found()
+    test_create_entity()
+    test_create_entity_invalid_type()
+    test_create_entity_duplicate()
+    test_update_entity()
+    test_update_entity_not_found()
+    test_delete_entity()
+    test_delete_entity_not_found()
+    test_create_relation()
+    test_create_relation_invalid_type()
+    test_create_relation_entity_not_found()
+    test_delete_relation()
+    test_delete_relation_not_found()
+    test_get_valid_types()
     print("所有 web_ui 测试通过!")

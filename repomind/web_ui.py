@@ -330,6 +330,311 @@ async def merge_projects(request: MergeRequest):
     }
 
 
+# ============ CRUD 操作 ============
+
+class EntityCreate(BaseModel):
+    name: str
+    type: str
+    description: Optional[str] = None
+    source_file: Optional[str] = None
+
+
+class EntityUpdate(BaseModel):
+    type: Optional[str] = None
+    description: Optional[str] = None
+    source_file: Optional[str] = None
+
+
+class RelationCreate(BaseModel):
+    source: str
+    target: str
+    type: str
+    description: Optional[str] = None
+
+
+class ProjectCreate(BaseModel):
+    name: str
+
+
+def _save_graph(name: str, graph: KnowledgeGraph):
+    """保存图谱到文件"""
+    builder = GraphBuilder(str(_state["output_dir"]))
+    builder.save_graph(graph, name)
+    _state["graphs"][name] = graph
+
+
+def _validate_entity_type(type_str: str) -> EntityType:
+    """验证实体类型"""
+    try:
+        return EntityType(type_str)
+    except ValueError:
+        valid_types = [t.value for t in EntityType]
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的实体类型: {type_str}。有效类型: {valid_types}"
+        )
+
+
+def _validate_relation_type(type_str: str) -> RelationType:
+    """验证关系类型"""
+    try:
+        return RelationType(type_str)
+    except ValueError:
+        valid_types = [t.value for t in RelationType]
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的关系类型: {type_str}。有效类型: {valid_types}"
+        )
+
+
+@app.post("/api/projects", tags=["项目CRUD"])
+async def create_project(request: ProjectCreate):
+    """创建新项目"""
+    if request.name in _state["graphs"]:
+        raise HTTPException(status_code=409, detail=f"项目已存在: {request.name}")
+    
+    graph = KnowledgeGraph(entities=[], relations=[])
+    _save_graph(request.name, graph)
+    
+    return {
+        "name": request.name,
+        "entities": 0,
+        "relations": 0,
+        "message": "项目创建成功"
+    }
+
+
+@app.put("/api/projects/{name}", tags=["项目CRUD"])
+async def update_project(name: str, new_name: str = Query(...)):
+    """重命名项目"""
+    if name not in _state["graphs"]:
+        raise HTTPException(status_code=404, detail=f"项目不存在: {name}")
+    
+    if new_name in _state["graphs"]:
+        raise HTTPException(status_code=409, detail=f"目标名称已存在: {new_name}")
+    
+    graph = _state["graphs"][name]
+    
+    # 保存为新名称
+    _save_graph(new_name, graph)
+    
+    # 删除旧文件
+    old_file = _state["output_dir"] / f"{name}.graph.json"
+    old_html = _state["output_dir"] / f"{name}.graph.html"
+    if old_file.exists():
+        old_file.unlink()
+    if old_html.exists():
+        old_html.unlink()
+    
+    # 更新缓存
+    del _state["graphs"][name]
+    
+    return {
+        "old_name": name,
+        "new_name": new_name,
+        "message": "项目重命名成功"
+    }
+
+
+@app.delete("/api/projects/{name}", tags=["项目CRUD"])
+async def delete_project(name: str):
+    """删除项目"""
+    if name not in _state["graphs"]:
+        raise HTTPException(status_code=404, detail=f"项目不存在: {name}")
+    
+    # 删除文件
+    graph_file = _state["output_dir"] / f"{name}.graph.json"
+    html_file = _state["output_dir"] / f"{name}.graph.html"
+    
+    if graph_file.exists():
+        graph_file.unlink()
+    if html_file.exists():
+        html_file.unlink()
+    
+    # 更新缓存
+    del _state["graphs"][name]
+    
+    return {"message": f"项目 {name} 已删除"}
+
+
+@app.post("/api/entities", tags=["实体CRUD"])
+async def create_entity(entity: EntityCreate, project: str = Query(None)):
+    """创建实体"""
+    graph = _get_graph(project)
+    
+    # 检查是否已存在
+    for e in graph.entities:
+        if e.name == entity.name and e.type.value == entity.type:
+            raise HTTPException(status_code=409, detail=f"实体已存在: {entity.name}")
+    
+    # 验证类型
+    etype = _validate_entity_type(entity.type)
+    
+    # 创建实体
+    new_entity = Entity(
+        name=entity.name,
+        type=etype,
+        description=entity.description,
+        source_file=entity.source_file
+    )
+    
+    graph.entities.append(new_entity)
+    
+    # 保存
+    project_name = project or list(_state["graphs"].keys())[0]
+    _save_graph(project_name, graph)
+    
+    return {
+        "name": new_entity.name,
+        "type": new_entity.type.value,
+        "description": new_entity.description,
+        "message": "实体创建成功"
+    }
+
+
+@app.put("/api/entity/{name}", tags=["实体CRUD"])
+async def update_entity(name: str, update: EntityUpdate, project: str = Query(None)):
+    """更新实体"""
+    graph = _get_graph(project)
+    
+    # 查找实体
+    entity = None
+    for e in graph.entities:
+        if e.name == name:
+            entity = e
+            break
+    
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"实体不存在: {name}")
+    
+    # 更新字段
+    if update.type is not None:
+        entity.type = _validate_entity_type(update.type)
+    if update.description is not None:
+        entity.description = update.description
+    if update.source_file is not None:
+        entity.source_file = update.source_file
+    
+    # 保存
+    project_name = project or list(_state["graphs"].keys())[0]
+    _save_graph(project_name, graph)
+    
+    return {
+        "name": entity.name,
+        "type": entity.type.value,
+        "description": entity.description,
+        "source_file": entity.source_file,
+        "message": "实体更新成功"
+    }
+
+
+@app.delete("/api/entity/{name}", tags=["实体CRUD"])
+async def delete_entity(name: str, project: str = Query(None)):
+    """删除实体"""
+    graph = _get_graph(project)
+    
+    # 查找并删除实体
+    original_count = len(graph.entities)
+    graph.entities = [e for e in graph.entities if e.name != name]
+    
+    if len(graph.entities) == original_count:
+        raise HTTPException(status_code=404, detail=f"实体不存在: {name}")
+    
+    # 同时删除相关关系
+    graph.relations = [
+        r for r in graph.relations
+        if r.source != name and r.target != name
+    ]
+    
+    # 保存
+    project_name = project or list(_state["graphs"].keys())[0]
+    _save_graph(project_name, graph)
+    
+    return {"message": f"实体 {name} 及其相关关系已删除"}
+
+
+@app.post("/api/relations", tags=["关系CRUD"])
+async def create_relation(relation: RelationCreate, project: str = Query(None)):
+    """创建关系"""
+    graph = _get_graph(project)
+    
+    # 验证类型
+    rtype = _validate_relation_type(relation.type)
+    
+    # 检查源和目标实体是否存在
+    source_exists = any(e.name == relation.source for e in graph.entities)
+    target_exists = any(e.name == relation.target for e in graph.entities)
+    
+    if not source_exists:
+        raise HTTPException(status_code=404, detail=f"源实体不存在: {relation.source}")
+    if not target_exists:
+        raise HTTPException(status_code=404, detail=f"目标实体不存在: {relation.target}")
+    
+    # 检查关系是否已存在
+    for r in graph.relations:
+        if r.source == relation.source and r.target == relation.target and r.type == rtype:
+            raise HTTPException(status_code=409, detail="关系已存在")
+    
+    # 创建关系
+    new_relation = Relation(
+        source=relation.source,
+        target=relation.target,
+        type=rtype,
+        description=relation.description
+    )
+    
+    graph.relations.append(new_relation)
+    
+    # 保存
+    project_name = project or list(_state["graphs"].keys())[0]
+    _save_graph(project_name, graph)
+    
+    return {
+        "source": new_relation.source,
+        "target": new_relation.target,
+        "type": new_relation.type.value,
+        "message": "关系创建成功"
+    }
+
+
+@app.delete("/api/relations", tags=["关系CRUD"])
+async def delete_relation(
+    source: str = Query(...),
+    target: str = Query(...),
+    type: str = Query(...),
+    project: str = Query(None)
+):
+    """删除关系"""
+    graph = _get_graph(project)
+    
+    rtype = _validate_relation_type(type)
+    
+    # 查找并删除关系
+    original_count = len(graph.relations)
+    graph.relations = [
+        r for r in graph.relations
+        if not (r.source == source and r.target == target and r.type == rtype)
+    ]
+    
+    if len(graph.relations) == original_count:
+        raise HTTPException(status_code=404, detail="关系不存在")
+    
+    # 保存
+    project_name = project or list(_state["graphs"].keys())[0]
+    _save_graph(project_name, graph)
+    
+    return {"message": "关系已删除"}
+
+
+@app.get("/api/types", tags=["元数据"])
+async def get_valid_types():
+    """获取有效的实体和关系类型"""
+    return {
+        "entity_types": [t.value for t in EntityType],
+        "relation_types": [t.value for t in RelationType]
+    }
+
+
 # ============ Web UI 页面 ============
 
 @app.get("/", response_class=HTMLResponse, tags=["Web UI"])
