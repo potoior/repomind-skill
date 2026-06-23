@@ -1559,6 +1559,132 @@ def search(ctx, keyword):
         kg.search(keyword)
 
 
+@cli.command('search-advanced')
+@click.argument('query')
+@click.option('--type', '-t', 'entity_types', multiple=True, help='过滤实体类型（可多次指定）')
+@click.option('--regex', '-r', is_flag=True, help='使用正则表达式')
+@click.option('--fuzzy', '-f', is_flag=True, help='模糊匹配')
+@click.option('--threshold', default=0.6, help='模糊匹配阈值 (0-1)')
+@click.option('--case-sensitive', '-c', is_flag=True, help='区分大小写')
+@click.option('--fields', default='name,description', help='搜索字段 (name,description)')
+@click.option('--max-results', '-n', default=50, help='最大结果数')
+@click.option('--context', is_flag=True, help='显示关联实体上下文')
+@click.pass_context
+def search_advanced(ctx, query, entity_types, regex, fuzzy, threshold, case_sensitive, fields, max_results, context):
+    """高级搜索
+    
+    示例:
+      cli.py search-advanced "UserService"
+      cli.py search-advanced "user" -t Module -t Service
+      cli.py search-advanced "^User.*" --regex
+      cli.py search-advanced "uservic" --fuzzy --threshold 0.7
+    """
+    from src.advanced_search import search_entities, SearchOptions, format_search_results, search_with_context
+    
+    kg = ctx.obj['kg']
+    project = ctx.obj.get('project')
+    
+    if not kg.load_graph_by_name(project):
+        return
+    
+    # 构建搜索选项
+    options = SearchOptions(
+        query=query,
+        entity_types=list(entity_types) if entity_types else None,
+        case_sensitive=case_sensitive,
+        use_regex=regex,
+        fuzzy=fuzzy,
+        fuzzy_threshold=threshold,
+        search_fields=fields.split(','),
+        max_results=max_results
+    )
+    
+    # 执行搜索
+    results = search_entities(kg.current_graph, options)
+    
+    if not results:
+        console.print(f"[yellow]没有找到包含 '{query}' 的实体[/yellow]")
+        return
+    
+    # 显示结果
+    console.print()
+    
+    # 如果启用上下文模式，显示第一个结果的详细上下文
+    if context and results:
+        top_result = results[0]
+        context_data = search_with_context(kg.current_graph, top_result.entity.name)
+        
+        if context_data:
+            entity = context_data['entity']
+            icon = ENTITY_ICONS.get(entity['type'], "•")
+            
+            console.print(Panel(
+                f"[bold]{icon} {entity['name']}[/bold]\n\n"
+                f"  类型: [cyan]{entity['type']}[/cyan]\n"
+                f"  描述: [dim]{entity['description'] or '-'}[/dim]\n"
+                f"  来源: [green]{entity['source_file'] or '-'}[/green]\n"
+                f"  关联实体: [yellow]{context_data['related_count']}[/yellow] 个",
+                title="[bold]最佳匹配[/bold]",
+                border_style="cyan"
+            ))
+            
+            # 显示出向关系
+            if context_data['outgoing']:
+                console.print()
+                table = Table(title="[bold]➡️ 出向关系[/bold]", box=box.SIMPLE)
+                table.add_column("关系", style="magenta")
+                table.add_column("目标", style="cyan")
+                table.add_column("类型", style="dim")
+                
+                for rel in context_data['outgoing'][:10]:
+                    table.add_row(rel['relation'], rel['entity'], rel['type'])
+                
+                console.print(table)
+            
+            # 显示入向关系
+            if context_data['incoming']:
+                console.print()
+                table = Table(title="[bold]⬅️ 入向关系[/bold]", box=box.SIMPLE)
+                table.add_column("来源", style="cyan")
+                table.add_column("关系", style="magenta")
+                table.add_column("类型", style="dim")
+                
+                for rel in context_data['incoming'][:10]:
+                    table.add_row(rel['entity'], rel['relation'], rel['type'])
+                
+                console.print(table)
+    
+    # 显示搜索结果列表
+    table = Table(title=f"[bold]🔍 搜索结果: '{query}'[/bold]", box=box.ROUNDED)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("名称", style="cyan")
+    table.add_column("类型", style="magenta")
+    table.add_column("描述", style="dim")
+    table.add_column("匹配", style="green")
+    table.add_column("分数", style="yellow", justify="right")
+    
+    for i, result in enumerate(results[:20], 1):
+        entity = result.entity
+        icon = ENTITY_ICONS.get(entity.type.value, "•")
+        
+        desc = (entity.description[:30] + "...") if entity.description and len(entity.description) > 30 else (entity.description or "-")
+        
+        table.add_row(
+            str(i),
+            f"{icon} {entity.name}",
+            entity.type.value,
+            desc,
+            result.match_type,
+            f"{result.score:.2f}"
+        )
+    
+    console.print()
+    console.print(table)
+    
+    if len(results) > 20:
+        console.print(f"[dim]... 还有 {len(results) - 20} 个结果[/dim]")
+
+
 @cli.command()
 @click.argument('name')
 @click.pass_context
