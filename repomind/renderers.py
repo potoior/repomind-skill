@@ -241,15 +241,19 @@ def render_visjs_html(graph: KnowledgeGraph, repo_name: str) -> str:
             }},
             physics: {{
                 enabled: true,
-                solver: 'forceAtlas2Based',
-                forceAtlas2Based: {{
-                    gravitationalConstant: -50,
-                    centralGravity: 0.01,
-                    springLength: 150,
-                    springConstant: 0.08,
-                    damping: 0.4
+                solver: 'barnesHut',
+                barnesHut: {{
+                    gravitationalConstant: -2000,
+                    centralGravity: 0.3,
+                    springLength: 95,
+                    springConstant: 0.04,
+                    damping: 0.09
                 }},
-                stabilization: {{ iterations: 150 }}
+                stabilization: {{ 
+                    enabled: true,
+                    iterations: 100,
+                    updateInterval: 25
+                }}
             }},
             interaction: {{
                 hover: true,

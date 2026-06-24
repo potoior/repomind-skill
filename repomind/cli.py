@@ -3075,6 +3075,94 @@ def parallel_analyze(ctx, path, workers, benchmark):
         console.print(f"[red]✗ 错误: {e}[/red]")
 
 
+@cli.command('analyze-api-flow')
+@click.argument('project_path')
+@click.option('--output', '-o', help='输出文件路径')
+@click.option('--mermaid', is_flag=True, help='生成Mermaid流程图')
+def analyze_api_flow(project_path, output, mermaid):
+    """分析API接口数据流
+    
+    示例:
+      repomind analyze-api-flow ./my-project
+      repomind analyze-api-flow ./my-project -o api-flow.md
+      repomind analyze-api-flow ./my-project --mermaid
+    """
+    from repomind.api_flow_analyzer import APIDataFlowAnalyzer
+    
+    project_path = Path(project_path)
+    if not project_path.exists():
+        console.print(f"[red]✗ 路径不存在: {project_path}[/red]")
+        return
+    
+    analyzer = APIDataFlowAnalyzer()
+    
+    console.print(f"[bold]🔍 分析API数据流: [cyan]{project_path}[/cyan][/bold]\n")
+    
+    # 分析后端
+    backend_path = project_path / "backend"
+    if backend_path.exists():
+        console.print("  📦 分析后端代码...")
+        analyzer.analyze_backend(str(backend_path))
+        console.print(f"    ✓ 找到 {len(analyzer.endpoints)} 个API端点")
+        console.print(f"    ✓ 找到 {len(analyzer.services)} 个服务方法")
+        console.print(f"    ✓ 找到 {len(analyzer.models)} 个数据模型")
+    
+    # 分析前端
+    frontend_path = project_path / "frontend"
+    if frontend_path.exists():
+        console.print("  🌐 分析前端代码...")
+        analyzer.analyze_frontend(str(frontend_path))
+    
+    # 构建数据流
+    console.print("  🔗 构建数据流...")
+    analyzer.build_data_flows()
+    
+    # 生成报告
+    console.print("\n  📝 生成报告...")
+    report = analyzer.generate_report()
+    
+    # 保存报告
+    if not output:
+        output = project_path / "api-dataflow.md"
+    
+    with open(output, 'w', encoding='utf-8') as f:
+        f.write(report)
+    
+    console.print(f"\n[green]✓ 数据流报告已保存: {output}[/green]")
+    
+    # 显示摘要
+    console.print()
+    stats_table = Table(
+        title="[bold]📊 分析结果[/bold]",
+        box=box.ROUNDED, show_header=True, header_style="bold magenta"
+    )
+    stats_table.add_column("指标", style="cyan")
+    stats_table.add_column("数量", style="green", justify="right")
+    
+    stats_table.add_row("API端点", str(len(analyzer.endpoints)))
+    stats_table.add_row("服务方法", str(len(analyzer.services)))
+    stats_table.add_row("数据模型", str(len(analyzer.models)))
+    stats_table.add_row("数据流", str(len(analyzer.data_flows)))
+    
+    console.print(stats_table)
+    
+    # 生成交互式HTML可视化
+    console.print("\n  🎨 生成交互式数据流图...")
+    html_content = analyzer.generate_interactive_html(project_path.name)
+    html_file = Path(output).with_suffix('.html')
+    with open(html_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    console.print(f"[green]✓ 交互式数据流图已保存: {html_file}[/green]")
+    
+    # 生成Mermaid图
+    if mermaid:
+        mermaid_content = analyzer.generate_mermaid_flowchart()
+        mermaid_file = Path(output).with_suffix('.mmd')
+        with open(mermaid_file, 'w', encoding='utf-8') as f:
+            f.write(mermaid_content)
+        console.print(f"[green]✓ Mermaid流程图已保存: {mermaid_file}[/green]")
+
+
 def main():
     """主入口函数"""
     cli()
