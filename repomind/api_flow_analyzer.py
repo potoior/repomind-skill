@@ -618,14 +618,17 @@ class APIDataFlowAnalyzer:
         
         .detail-panel {{
             position: absolute; top: 20px; right: 20px;
-            width: 350px; background: rgba(22, 33, 62, 0.95);
+            width: 420px; background: rgba(22, 33, 62, 0.98);
             border-radius: 12px; padding: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-            display: none; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            display: none; max-height: 85vh; overflow-y: auto;
         }}
+        .detail-panel::-webkit-scrollbar {{ width: 6px; }}
+        .detail-panel::-webkit-scrollbar-track {{ background: transparent; }}
+        .detail-panel::-webkit-scrollbar-thumb {{ background: #667eea; border-radius: 3px; }}
         .detail-panel.visible {{ display: block; }}
-        .detail-panel h3 {{ color: #667eea; margin-bottom: 15px; }}
+        .detail-panel h3 {{ color: #667eea; margin-bottom: 15px; font-size: 16px; }}
         .detail-row {{ padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }}
         .detail-label {{ color: #888; font-size: 12px; }}
         .detail-value {{ color: #eee; font-size: 14px; margin-top: 4px; }}
@@ -681,6 +684,14 @@ class APIDataFlowAnalyzer:
         <div class="main">
             <div id="network"></div>
             
+            <div id="loadingBar" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: rgba(22, 33, 62, 0.95); padding: 30px; border-radius: 12px; text-align: center; min-width: 300px;">
+                <div style="margin-bottom: 15px; font-size: 16px; color: #667eea;">📊 正在加载数据流图...</div>
+                <div style="width: 100%; height: 8px; background: #0f3460; border-radius: 4px; overflow: hidden;">
+                    <div id="loadingProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.1s;"></div>
+                </div>
+                <div id="loadingText" style="margin-top: 10px; color: #888; font-size: 14px;">准备加载...</div>
+            </div>
+            
             <div class="stats">
                 <div class="stats-row">
                     <div class="stat">
@@ -733,8 +744,12 @@ class APIDataFlowAnalyzer:
             'method': ep.method,
             'path': ep.path,
             'handler': ep.handler,
-            'description': ep.description[:100] if ep.description else '',
-            'file': Path(ep.file_path).stem
+            'description': ep.description[:200] if ep.description else '',
+            'file': Path(ep.file_path).stem,
+            'request_body': ep.request_body or '',
+            'dependencies': ep.dependencies[:3] if ep.dependencies else [],
+            'service_calls': next((f.service_calls for f in self.data_flows if f.endpoint == ep.path), []),
+            'db_operations': next((f.db_operations for f in self.data_flows if f.endpoint == ep.path), [])
         } for ep in self.endpoints])};
         
         const typeColors = {{
@@ -744,21 +759,9 @@ class APIDataFlowAnalyzer:
             'database': {{ background: '#FF9800', border: '#F57C00' }}
         }};
         
-        const nodes = new vis.DataSet(nodesData.map(n => ({{
-            ...n,
-            color: typeColors[n.group] || typeColors.api,
-            font: {{ color: '#fff', size: 12 }},
-            shape: n.group === 'database' ? 'database' : (n.group === 'frontend' ? 'icon' : 'box'),
-            margin: 10,
-            widthConstraint: {{ maximum: 200 }}
-        }})));
-        
-        const edges = new vis.DataSet(edgesData.map(e => ({{
-            ...e,
-            color: {{ color: '#666', highlight: '#667eea' }},
-            font: {{ color: '#888', size: 10 }},
-            smooth: {{ type: 'curvedCW', roundness: 0.2 }}
-        }})));
+        // 创建空的DataSet
+        const nodes = new vis.DataSet();
+        const edges = new vis.DataSet();
         
         const container = document.getElementById('network');
         const network = new vis.Network(container, {{ nodes, edges }}, {{
@@ -782,6 +785,58 @@ class APIDataFlowAnalyzer:
                 shadow: true
             }}
         }});
+        
+        // 逐个加载节点和边
+        const loadingProgress = document.getElementById('loadingProgress');
+        const loadingText = document.getElementById('loadingText');
+        let loadedNodes = 0;
+        let loadedEdges = 0;
+        
+        function loadNextNode() {{
+            if (loadedNodes < nodesData.length) {{
+                const n = nodesData[loadedNodes];
+                nodes.add({{
+                    ...n,
+                    color: typeColors[n.group] || typeColors.api,
+                    font: {{ color: '#fff', size: 12 }},
+                    shape: n.group === 'database' ? 'database' : (n.group === 'frontend' ? 'icon' : 'box'),
+                    margin: 10,
+                    widthConstraint: {{ maximum: 200 }}
+                }});
+                loadedNodes++;
+                loadingText.textContent = `加载节点: ${{loadedNodes}}/${{nodesData.length}}`;
+                loadingProgress.style.width = `${{(loadedNodes / nodesData.length) * 100}}%`;
+                
+                // 加载相关的边
+                const nodeId = n.id;
+                edgesData.filter(e => e.from === nodeId || e.to === nodeId).forEach(e => {{
+                    if (!edges.get().find(existing => existing.from === e.from && existing.to === e.to)) {{
+                        edges.add({{
+                            ...e,
+                            color: {{ color: '#666', highlight: '#667eea' }},
+                            font: {{ color: '#888', size: 10 }},
+                            smooth: {{ type: 'curvedCW', roundness: 0.2 }}
+                        }});
+                        loadedEdges++;
+                    }}
+                }});
+                
+                // 继续加载下一个
+                setTimeout(loadNextNode, 50);
+            }} else {{
+                // 加载完成
+                loadingText.textContent = '加载完成';
+                setTimeout(() => {{
+                    document.getElementById('loadingBar').style.display = 'none';
+                }}, 1000);
+                
+                // 适配视图
+                network.fit({{ animation: true }});
+            }}
+        }}
+        
+        // 开始加载
+        setTimeout(loadNextNode, 100);
         
         // 填充接口列表
         const endpointList = document.getElementById('endpointList');
@@ -897,6 +952,128 @@ class APIDataFlowAnalyzer:
                     </div>
                 `;
             }}
+            
+            if (ep.request_body) {{
+                html += `
+                    <div class="detail-row">
+                        <div class="detail-label">请求体</div>
+                        <div class="detail-value">${{ep.request_body}}</div>
+                    </div>
+                `;
+            }}
+            
+            if (ep.dependencies && ep.dependencies.length > 0) {{
+                html += `
+                    <div class="detail-row">
+                        <div class="detail-label">依赖注入</div>
+                        <div class="detail-value">${{ep.dependencies.join(', ')}}</div>
+                    </div>
+                `;
+            }}
+            
+            // 数据流详情
+            html += `
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #667eea;">
+                    <div class="detail-label" style="font-size: 14px; font-weight: bold; color: #667eea; margin-bottom: 15px;">📊 数据流</div>
+                    
+                    <div style="background: #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <div style="width: 30px; height: 30px; background: #61dafb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 14px;">🌐</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 13px;">前端请求</div>
+                                <div style="color: #888; font-size: 12px;">发起 ${{ep.method}} 请求</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; color: #667eea; font-size: 18px; margin: 5px 0;">↓</div>
+                        <div style="background: #1a1a4e; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px;">
+                            ${{ep.method}} ${{ep.path}}
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; color: #667eea; font-size: 18px; margin: 10px 0;">↓</div>
+                    
+                    <div style="background: #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <div style="width: 30px; height: 30px; background: #4CAF50; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 14px;">📦</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 13px;">路由处理</div>
+                                <div style="color: #888; font-size: 12px;">${{ep.file}}.py</div>
+                            </div>
+                        </div>
+                        <div style="background: #1a1a4e; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px;">
+                            async def ${{ep.handler}}()
+                        </div>
+                    </div>
+            `;
+            
+            // 服务层调用
+            if (ep.service_calls && ep.service_calls.length > 0) {{
+                html += `
+                    <div style="text-align: center; color: #667eea; font-size: 18px; margin: 10px 0;">↓</div>
+                    
+                    <div style="background: #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <div style="width: 30px; height: 30px; background: #2196F3; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 14px;">⚙️</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 13px;">服务层</div>
+                                <div style="color: #888; font-size: 12px;">业务逻辑处理</div>
+                            </div>
+                        </div>
+                        <div style="background: #1a1a4e; border-radius: 6px; padding: 10px;">
+                `;
+                
+                ep.service_calls.forEach(call => {{
+                    html += `<div style="font-family: monospace; font-size: 12px; padding: 3px 0;">• ${{call}}()</div>`;
+                }});
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            // 数据库操作
+            if (ep.db_operations && ep.db_operations.length > 0) {{
+                html += `
+                    <div style="text-align: center; color: #667eea; font-size: 18px; margin: 10px 0;">↓</div>
+                    
+                    <div style="background: #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <div style="width: 30px; height: 30px; background: #FF9800; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 14px;">🗄️</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 13px;">数据库</div>
+                                <div style="color: #888; font-size: 12px;">数据持久化</div>
+                            </div>
+                        </div>
+                        <div style="background: #1a1a4e; border-radius: 6px; padding: 10px;">
+                `;
+                
+                const uniqueOps = [...new Set(ep.db_operations)];
+                uniqueOps.forEach(op => {{
+                    html += `<div style="font-family: monospace; font-size: 12px; padding: 3px 0;">• ${{op}}</div>`;
+                }});
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }}
+            
+            // 返回响应
+            html += `
+                    <div style="text-align: center; color: #667eea; font-size: 18px; margin: 10px 0;">↓</div>
+                    
+                    <div style="background: #0f3460; border-radius: 8px; padding: 15px;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 30px; height: 30px; background: #61dafb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-size: 14px;">🌐</div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 13px;">返回响应</div>
+                                <div style="color: #888; font-size: 12px;">JSON Response</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
             
             content.innerHTML = html;
             panel.classList.add('visible');
